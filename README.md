@@ -4,6 +4,8 @@ This is a sort of crazy idea that I could display all of the internal parameters
 Each display with a different section of the synth, DCO1, DCO2 etc
 It's sort of working fine for parameter adjustments, but is still quite clunky on patch changes and misses parameter settings on the screen.
 
+![Synth](Photos/synth.jpg)
+
 # Things to do
 
 * Fix the data transfer for patches from CC to Sysex for upper and lower patches.
