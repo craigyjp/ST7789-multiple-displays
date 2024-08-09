@@ -169,11 +169,11 @@ void drawPWIndicator2(int x, int value) {
 
 void renderFilterPoints() {
   maxSectionWidth = (screenWidth - 80) / 3;  // Limit each section to a third of the available width minus the sustain
-  attackX = mapValue(filterAttack, 1023, maxSectionWidth);
-  decayX = attackX + mapValue(filterDecay, 1023, maxSectionWidth);
-  sustainLevel = screenHeight - mapValue(filterSustain, 1023, screenHeight);
+  attackX = mapValue(panelData[P_filterAttack], 1023, maxSectionWidth);
+  decayX = attackX + mapValue(panelData[P_filterDecay], 1023, maxSectionWidth);
+  sustainLevel = screenHeight - mapValue(panelData[P_filterSustain], 1023, screenHeight);
   sustainX = decayX + 80;                                                // Fixed length sustain bar of 80 pixels
-  releaseX = sustainX + mapValue(filterRelease, 1023, maxSectionWidth);  // Release limited to a third of the screen width
+  releaseX = sustainX + mapValue(panelData[P_filterRelease], 1023, maxSectionWidth);  // Release limited to a third of the screen width
 
   // Ensure release does not go beyond screen width
   if (releaseX > screenWidth) {
@@ -198,11 +198,11 @@ void renderFilterPoints() {
 
 void renderAmpPoints() {
   maxSectionWidth = (screenWidth - 80) / 3;  // Limit each section to a third of the available width minus the sustain
-  AmpattackX = mapValue(ampAttack, 1023, maxSectionWidth);
-  AmpdecayX = AmpattackX + mapValue(ampDecay, 1023, maxSectionWidth);
-  AmpsustainLevel = screenHeight - mapValue(ampSustain, 1023, screenHeight);
+  AmpattackX = mapValue(panelData[P_ampAttack], 1023, maxSectionWidth);
+  AmpdecayX = AmpattackX + mapValue(panelData[P_ampDecay], 1023, maxSectionWidth);
+  AmpsustainLevel = screenHeight - mapValue(panelData[P_ampSustain], 1023, screenHeight);
   AmpsustainX = AmpdecayX + 80;                                             // Fixed length sustain bar of 80 pixels
-  AmpreleaseX = AmpsustainX + mapValue(ampRelease, 1023, maxSectionWidth);  // Release limited to a third of the screen width
+  AmpreleaseX = AmpsustainX + mapValue(panelData[P_ampRelease], 1023, maxSectionWidth);  // Release limited to a third of the screen width
 
   // Ensure release does not go beyond screen width
   if (AmpreleaseX > screenWidth) {
@@ -242,18 +242,17 @@ void renderCurrentPatchPage(int parameter) {
       // Setting text labels at the bottom of each bar
       tft0.setCursor(2, 220);
       tft0.print("GLD");
-
+      tft0.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
       tft0.setFont(&FreeSans12pt7b);
 
       // glide indicator box along the top
-      if (glideSW == 0) {
+      if (panelData[P_glideSW] == 0) {
         tft0.fillRoundRect(10, 10, 130, 30, 5, ST7735_GREEN);  // Green box for off
       } else {
         tft0.fillRoundRect(10, 10, 130, 30, 5, ST7735_RED);  // Red box for on
       }
-      tft0.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
       tft0.setCursor(30, 18);
-      tft0.print(glideSW == 0 ? "Glide Off" : "Glide On");
+      tft0.print(panelData[P_glideSW] == 0 ? "Glide Off" : "Glide On");
 
       // chord Hold indicator box along the top
       if (chordHoldSW == 0) {
@@ -261,7 +260,6 @@ void renderCurrentPatchPage(int parameter) {
       } else {
         tft0.fillRoundRect(180, 10, 130, 30, 5, ST7735_RED);  // Red box for on
       }
-      tft0.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
       tft0.setCursor(195, 18);
       tft0.print(chordHoldSW == 0 ? "Hold Off" : "Hold On");
 
@@ -271,7 +269,6 @@ void renderCurrentPatchPage(int parameter) {
       } else {
         tft0.fillRoundRect(180, 50, 130, 30, 5, ST7735_RED);  // Green box for off
       }
-      tft0.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
       tft0.setCursor(195, 58);
       tft0.print(upperSW == 0 ? "     " : "Upper");
 
@@ -280,7 +277,6 @@ void renderCurrentPatchPage(int parameter) {
       } else {
         tft0.fillRoundRect(180, 90, 130, 30, 5, ST7735_RED);  // Green box for off
       }
-      tft0.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
       tft0.setCursor(195, 98);
       tft0.print(lowerSW == 0 ? "     " : "Lower");
 
@@ -352,80 +348,8 @@ void renderCurrentPatchPage(int parameter) {
           break;
       }
 
-      drawBar0(6, glideTime, NUM_STEPS, STEP_HEIGHT);
-      // tft0.setFont(&FreeSans12pt7b);
-      // tft0.fillScreen(ST7735_BLACK);
-      // tft0.setCursor(0, 5);
-      // tft0.setTextSize(3);
-      // tft0.setTextColor(ST7735_YELLOW);
-      // tft0.println(currentPgmNum);
-      // tft0.setCursor(80, 15);
-      // tft0.setFont(&FreeSans9pt7b);
-      // tft0.setTextSize(2);
-      // tft0.setTextColor(ST7735_WHITE);
-      // tft0.println(currentPatchName);
-      // tft0.setFont(&FreeSans12pt7b);
-      // tft0.setTextSize(1);
-      // tft0.drawFastHLine(0, 58, tft0.width(), ST7735_RED);
-      // tft0.setTextColor(ST7735_WHITE);
-
-      // tft0.setTextColor(ST7735_WHITE);
-      // tft0.setTextSize(1);
-      // tft0.setCursor(0, 70);
-      // tft0.print("Glide Time");
-      // tft0.setCursor(0, 100);
-      // tft0.print("Glide");
-      // tft0.setCursor(0, 130);
-      // tft0.print("Key Mode");
-      // tft0.setCursor(0, 160);
-      // tft0.print("Note Priority");
-      // tft0.setCursor(0, 190);
-      // tft0.print("OSC1 Coarse");
-      // tft0.setCursor(0, 220);
-      // tft0.print("OSC2 Fine");
-      // tft0.setTextColor(ST7735_YELLOW);
-      // tft0.setCursor(160, 100);
-      // switch (glideSW) {
-      //   case 0:
-      //     tft0.print("Off");
-      //     break;
-      //   case 1:
-      //     tft0.print("On");
-      //     break;
-      // }
-      // tft0.setCursor(160, 130);
-      // switch (keyboardMode) {
-      //   case 0:
-      //     tft0.print("Poly 1");
-      //     break;
-      //   case 1:
-      //     tft0.print("Poly 2");
-      //     break;
-      //   case 2:
-      //     tft0.print("Mono");
-      //     break;
-      //   case 3:
-      //     tft0.print("Unison");
-      //     break;
-      // }
-      // tft0.setCursor(160, 160);
-      // switch (NotePriority) {
-      //   case 0:
-      //     tft0.print("Top Note");
-      //     break;
-      //   case 1:
-      //     tft0.print("Bottom Note");
-      //     break;
-      //   case 2:
-      //     tft0.print("Last Note");
-      //     break;
-      // }
-
-      // tft0.fillRoundRect(160, 68, int((glideTime * 8) / 6.5), 16, 2, ST7735_YELLOW);
-      //tft0.updateScreen();
+      drawBar0(6, panelData[P_glideTime], NUM_STEPS, STEP_HEIGHT);
       break;
-
-
 
     case 1:  // Oscillator 1
       // ************************ DISPLAY 1 **************************
@@ -450,11 +374,11 @@ void renderCurrentPatchPage(int parameter) {
       tft1.print("Sub");
 
       tft1.setFont(&FreeSans12pt7b);
+      tft1.setTextColor(ST7735_BLACK);
       // Set range label and value inside a box along the top
       tft1.fillRoundRect(180, 10, 130, 30, 5, ST7735_YELLOW);  // Background box for range
-      tft1.setTextColor(ST7735_BLACK);
       tft1.setCursor(195, 18);
-      switch (oct1) {
+      switch (panelData[P_osc1Range]) {
         case 0:
           tft1.print("Range 32");
           break;
@@ -472,15 +396,14 @@ void renderCurrentPatchPage(int parameter) {
       tft1.drawFastHLine(6, 205, 24, ST7735_RED);
 
       // Drawing the bars
-      drawPWIndicator1(6, osc1PW);
-      drawBar1(52, osc1PWM, NUM_STEPS, STEP_HEIGHT);
-      drawBar1(98, oscfmDepth, NUM_STEPS, STEP_HEIGHT);
+      drawPWIndicator1(6, panelData[P_osc1PW]);
+      drawBar1(52, panelData[P_osc1PWM], NUM_STEPS, STEP_HEIGHT);
+      drawBar1(98, panelData[P_fmDepth], NUM_STEPS, STEP_HEIGHT);
 
-      drawBar1(192, osc1sawLevel, NUM_STEPS, STEP_HEIGHT);
-      drawBar1(236, osc1pulseLevel, NUM_STEPS, STEP_HEIGHT);
-      drawBar1(282, osc1subLevel, NUM_STEPS, STEP_HEIGHT);
+      drawBar1(192, panelData[P_osc1SawLevel], NUM_STEPS, STEP_HEIGHT);
+      drawBar1(236, panelData[P_osc1PulseLevel], NUM_STEPS, STEP_HEIGHT);
+      drawBar1(282, panelData[P_osc1SubLevel], NUM_STEPS, STEP_HEIGHT);
 
-      //tft1.updateScreen();
       break;
 
     case 2:  // oscillator 2
@@ -507,11 +430,12 @@ void renderCurrentPatchPage(int parameter) {
       tft2.print("Tri");
 
       tft2.setFont(&FreeSans12pt7b);
+      tft2.setTextColor(ST7735_BLACK);
       // Set range label and value inside a box along the top
       tft2.fillRoundRect(180, 10, 130, 30, 5, ST7735_YELLOW);  // Background box for range
-      tft2.setTextColor(ST7735_BLACK);
+
       tft2.setCursor(195, 18);
-      switch (oct2) {
+      switch (panelData[P_osc2Range]) {
         case 0:
           tft2.print("Range 32");
           break;
@@ -523,13 +447,12 @@ void renderCurrentPatchPage(int parameter) {
           break;
       }
 
-      // Sync indicator box along the top
+      // panelData[P_sync] indicator box along the top
       if (syncSW == 0) {
         tft2.fillRoundRect(10, 10, 130, 30, 5, ST7735_GREEN);  // Green box for off
       } else {
         tft2.fillRoundRect(10, 10, 130, 30, 5, ST7735_RED);  // Red box for on
       }
-      tft2.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
       tft2.setCursor(30, 18);
       tft2.print(syncSW == 0 ? "Sync Off" : "Sync On");
 
@@ -540,15 +463,14 @@ void renderCurrentPatchPage(int parameter) {
       tft2.drawFastHLine(6, 205, 24, ST7735_RED);
 
       // Drawing the bars
-      drawPWIndicator2(6, osc2PW);
-      drawBar2(52, osc2PWM, NUM_STEPS, STEP_HEIGHT);
-      drawBar2(98, osc2detune, NUM_STEPS, STEP_HEIGHT);
-      drawBar2(144, osc2interval, DET_STEPS, DET_STEP_HEIGHT);
-      drawBar2(192, osc2sawLevel, NUM_STEPS, STEP_HEIGHT);
-      drawBar2(236, osc2pulseLevel, NUM_STEPS, STEP_HEIGHT);
-      drawBar2(282, osc2triLevel, NUM_STEPS, STEP_HEIGHT);
+      drawPWIndicator2(6, panelData[P_osc2PW]);
+      drawBar2(52, panelData[P_osc2PWM], NUM_STEPS, STEP_HEIGHT);
+      drawBar2(98, panelData[P_osc2Detune], NUM_STEPS, STEP_HEIGHT);
+      drawBar2(144, panelData[P_osc2Interval], DET_STEPS, DET_STEP_HEIGHT);
+      drawBar2(192, panelData[P_osc2SawLevel], NUM_STEPS, STEP_HEIGHT);
+      drawBar2(236, panelData[P_osc2PulseLevel], NUM_STEPS, STEP_HEIGHT);
+      drawBar2(282, panelData[P_osc2TriangleLevel], NUM_STEPS, STEP_HEIGHT);
 
-      //tft2.updateScreen();
       break;
 
     case 3:                           // filter
@@ -571,13 +493,13 @@ void renderCurrentPatchPage(int parameter) {
       tft3.print("TM");
 
       tft3.setFont(&FreeSans12pt7b);
-
-      switch (filterPoleSW) {
+      tft3.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
+      switch (panelData[P_filterPoleSW]) {
         case 1:
-          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(filter01[filterType])));
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(filter01[panelData[P_filterType]])));
           break;
         case 0:
-          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(filter02[filterType])));
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(filter02[panelData[P_filterType]])));
           break;
       }
       // Check if the pointer is valid
@@ -588,71 +510,65 @@ void renderCurrentPatchPage(int parameter) {
         // Handle the case where the pointer is NULL (if needed)
       }
       tft3.setFont(&FreeSans12pt7b);
-      if (filterPoleSW == 0) {
+      if (panelData[P_filterPoleSW] == 0) {
         tft3.fillRoundRect(240, 10, 70, 30, 5, ST7735_GREEN);  // Green box for off
       } else {
         tft3.fillRoundRect(240, 10, 70, 30, 5, ST7735_RED);  // Red box for on
       }
-      tft3.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
       tft3.setCursor(260, 18);
-      tft3.print(filterPoleSW == 0 ? "Off" : "On");
+      tft3.print(panelData[P_filterPoleSW] == 0 ? "Off" : "On");
 
       // Set range label and value inside a box along the top
       tft3.fillRoundRect(10, 10, 200, 30, 5, ST7735_YELLOW);  // Background box for range
       tft3.setCursor(40, 18);
-      tft3.setTextColor(ST7735_BLACK);
       tft3.print(filterDisplay);
 
       // Drawing the bars
-      drawBar3(6, filterCutoff, NUM_STEPS, STEP_HEIGHT);
-      drawBar3(52, filterRes, NUM_STEPS, STEP_HEIGHT);
-      drawBar3(98, filterEGlevel, NUM_STEPS, STEP_HEIGHT);
-      drawBar3(144, keyTrack, NUM_STEPS, STEP_HEIGHT);
-      drawBar3(192, filterLFO, NUM_STEPS, STEP_HEIGHT);
+      drawBar3(6, panelData[P_filterCutoff], NUM_STEPS, STEP_HEIGHT);
+      drawBar3(52, panelData[P_filterRes], NUM_STEPS, STEP_HEIGHT);
+      drawBar3(98, panelData[P_filterEGlevel], NUM_STEPS, STEP_HEIGHT);
+      drawBar3(144, panelData[P_keytrack], NUM_STEPS, STEP_HEIGHT);
+      drawBar3(192, panelData[P_filterLFO], NUM_STEPS, STEP_HEIGHT);
 
-      //tft3.updateScreen();
       break;
 
     case 4:  // filter ADSR
       // ************************ DISPLAY 4 **************************
       tft4.fillScreen(ST7735_BLACK);
-      tft4.setTextColor(ST7735_WHITE);
       tft4.setFont(&FreeSans12pt7b);
       tft4.setTextSize(1);
+      tft4.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
 
-      if (filterVelSW == 0) {
+      if (panelData[P_filterVel] == 0) {
         tft4.fillRoundRect(10, 10, 130, 30, 5, ST7735_GREEN);  // Green box for off
       } else {
         tft4.fillRoundRect(10, 10, 130, 30, 5, ST7735_RED);  // Red box for on
       }
-      tft4.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
+      
       tft4.setCursor(30, 18);
-      tft4.print(filterVelSW == 0 ? "Vel Off" : "Vel On");
+      tft4.print(panelData[P_filterVel] == 0 ? "Vel Off" : "Vel On");
 
-      if (filterEGinv == 0) {
+      if (panelData[P_filterEGinv] == 0) {
         tft4.fillRoundRect(180, 10, 130, 30, 5, ST7735_GREEN);  // Green box for off
       } else {
         tft4.fillRoundRect(180, 10, 130, 30, 5, ST7735_RED);  // Red box for on
       }
-      tft4.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
+
       tft4.setCursor(195, 18);
-      tft4.print(filterEGinv == 0 ? "EG Pos" : "Eg Neg");
+      tft4.print(panelData[P_filterEGinv] == 0 ? "EG Pos" : "Eg Neg");
 
       if (filterenvLinLogSW == 0) {
         tft4.fillRoundRect(10, 50, 130, 30, 5, ST7735_GREEN);  // Green box for off
       } else {
         tft4.fillRoundRect(10, 50, 130, 30, 5, ST7735_RED);  // Red box for on
       }
-      tft4.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
+
       tft4.setCursor(30, 58);
       tft4.print(filterenvLinLogSW == 0 ? "Env Lin" : "Env Log");
 
-
       tft4.fillRoundRect(180, 50, 130, 30, 5, ST7735_YELLOW);  // Green box for off
-
-      tft4.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
       tft4.setCursor(195, 58);
-      switch (FilterLoop) {
+      switch (panelData[P_filterLoop]) {
         case 0:
           tft4.setCursor(195, 58);
           tft4.print("Loop Off");
@@ -680,50 +596,44 @@ void renderCurrentPatchPage(int parameter) {
         tft4.drawLine(pointsX[i], pointsY[i] - 1, pointsX[i + 1], pointsY[i + 1] - 1, ST7735_YELLOW);
       }
 
-      //tft4.updateScreen();
       break;
 
     case 5:  // amp ADSR
       // ************************ DISPLAY 5 **************************
 
       tft5.fillScreen(ST7735_BLACK);
-      tft5.setTextColor(ST7735_WHITE);
       tft5.setFont(&FreeSans12pt7b);
       tft5.setTextSize(1);
+      tft5.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
 
-      if (ampVelSW == 0) {
+      if (panelData[P_vcaVel] == 0) {
         tft5.fillRoundRect(10, 10, 130, 30, 5, ST7735_GREEN);  // Green box for off
       } else {
         tft5.fillRoundRect(10, 10, 130, 30, 5, ST7735_RED);  // Red box for on
       }
-      tft5.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
       tft5.setCursor(30, 18);
-      tft5.print(filterVelSW == 0 ? "Vel Off" : "Vel On");
+      tft5.print(panelData[P_filterVel] == 0 ? "Vel Off" : "Vel On");
 
-      if (AmpGatedSW == 0) {
+      if (panelData[P_vcaGate] == 0) {
         tft5.fillRoundRect(180, 10, 130, 30, 5, ST7735_GREEN);  // Green box for off
       } else {
         tft5.fillRoundRect(180, 10, 130, 30, 5, ST7735_RED);  // Red box for on
       }
-      tft5.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
       tft5.setCursor(195, 18);
-      tft5.print(AmpGatedSW == 0 ? "Gate Off" : "Gate On");
+      tft5.print(panelData[P_vcaGate] == 0 ? "Gate Off" : "Gate On");
 
       if (ampenvLinLogSW == 0) {
         tft5.fillRoundRect(10, 50, 130, 30, 5, ST7735_GREEN);  // Green box for off
       } else {
         tft5.fillRoundRect(10, 50, 130, 30, 5, ST7735_RED);  // Red box for on
       }
-      tft5.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
       tft5.setCursor(30, 58);
       tft5.print(filterenvLinLogSW == 0 ? "Env Lin" : "Env Log");
 
 
       tft5.fillRoundRect(180, 50, 130, 30, 5, ST7735_YELLOW);  // Green box for off
-
-      tft5.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
       tft5.setCursor(195, 58);
-      switch (AmpLoop) {
+      switch (panelData[P_vcaLoop]) {
         case 0:
           tft5.setCursor(195, 58);
           tft5.print("Loop Off");
@@ -751,7 +661,6 @@ void renderCurrentPatchPage(int parameter) {
         tft5.drawLine(AmppointsX[i], AmppointsY[i] - 1, AmppointsX[i + 1], AmppointsY[i + 1] - 1, ST7735_YELLOW);
       }
 
-      //tft5.updateScreen();
       break;
 
     case 6:  // LFO
@@ -772,9 +681,11 @@ void renderCurrentPatchPage(int parameter) {
       tft6.print("MW");
 
       tft6.setFont(&FreeSans12pt7b);
+      tft6.setTextColor(ST7735_BLACK);
+
       // Set range label and value inside a box along the top
       tft6.fillRoundRect(240, 10, 70, 30, 5, ST7735_YELLOW);  // Background box for range
-      tft6.setTextColor(ST7735_BLACK);
+      
       tft6.setCursor(260, 18);
       switch (lfoMult) {
         case 0:
@@ -788,12 +699,12 @@ void renderCurrentPatchPage(int parameter) {
           break;
       }
 
-      switch (lfoAlt) {
+      switch (panelData[P_lfoAlt]) {
         case 0:
-          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(lfo02[LFOWaveform])));
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(lfo02[panelData[P_LFOWaveform]])));
           break;
         case 1:
-          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(lfo01[LFOWaveform])));
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(lfo01[panelData[P_LFOWaveform]])));
           break;
       }
       // Check if the pointer is valid
@@ -806,113 +717,23 @@ void renderCurrentPatchPage(int parameter) {
       // Set range label and value inside a box along the top
       tft6.fillRoundRect(10, 10, 200, 30, 5, ST7735_YELLOW);  // Background box for range
       tft6.setCursor(40, 18);
-      tft6.setTextColor(ST7735_BLACK);
       tft6.print(lfoDisplay);
 
-      if (lfoAlt == 1) {
+      if (panelData[P_lfoAlt] == 1) {
         tft6.fillRoundRect(180, 50, 130, 30, 5, ST7735_RED);
       } else {
         tft6.fillRoundRect(180, 50, 130, 30, 5, ST7735_GREEN);
       }
       tft6.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
       tft6.setCursor(195, 58);
-      tft6.print(lfoAlt == 0 ? "Alt Off" : "Alt On");
+      tft6.print(panelData[P_lfoAlt] == 0 ? "Alt Off" : "Alt On");
 
       // Drawing the bars
-      drawBar6(6, LFORate, NUM_STEPS, STEP_HEIGHT);
-      drawBar6(52, lfoDelay, NUM_STEPS, STEP_HEIGHT);
-      drawBar6(98, PWRate, NUM_STEPS, STEP_HEIGHT);
-      drawBar6(144, modWheelDepth, NUM_STEPS, STEP_HEIGHT);
+      drawBar6(6, panelData[P_LFORate], NUM_STEPS, STEP_HEIGHT);
+      drawBar6(52, panelData[P_LFODelay], NUM_STEPS, STEP_HEIGHT);
+      drawBar6(98, panelData[P_pwLFO], NUM_STEPS, STEP_HEIGHT);
+      drawBar6(144, panelData[P_modWheelDepth], NUM_STEPS, STEP_HEIGHT);
 
-      // tft6.setCursor(160, 70);
-      // tft6.setTextColor(ST7735_YELLOW);
-      // tft6.print(lfoDisplay);
-      //tft6.updateScreen();
-
-      // tft6.setFont(&FreeSans12pt7b);
-      // tft6.fillScreen(ST7735_BLACK);
-      // tft6.setCursor(0, 5);
-      // tft6.setTextSize(3);
-      // tft6.setTextColor(ST7735_YELLOW);
-      // tft6.println(currentPgmNum);
-      // tft6.setCursor(80, 15);
-      // tft6.setFont(&FreeSans9pt7b);
-      // tft6.setTextSize(2);
-      // tft6.setTextColor(ST7735_WHITE);
-      // tft6.println(currentPatchName);
-      // tft6.setFont(&FreeSans12pt7b);
-      // tft6.setTextSize(1);
-      // tft6.drawFastHLine(0, 58, tft4.width(), ST7735_RED);
-      // tft6.setTextColor(ST7735_WHITE);
-
-      // char lfoDisplay[30];
-      // switch (lfoAlt) {
-      //   case 0:
-      //     str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(lfo02[LFOWaveform])));
-      //     break;
-      //   case 1:
-      //     str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(lfo01[LFOWaveform])));
-      //     break;
-      // }
-      // // Check if the pointer is valid
-      // if (str_ptr != nullptr) {
-      //   // Copy the string from program memory to RAM
-      //   strcpy_P(lfoDisplay, str_ptr);
-      // } else {
-      //   // Handle the case where the pointer is NULL (if needed)
-      // }
-      // tft6.setTextSize(1);
-      // tft6.setCursor(0, 70);
-      // tft6.print("LFO Wave");
-      // tft6.setCursor(160, 70);
-      // tft6.setTextColor(ST7735_YELLOW);
-      // tft6.print(lfoDisplay);
-      // tft6.setTextColor(ST7735_WHITE);
-      // tft6.setCursor(0, 100);
-      // tft6.print("LFO Rate");
-      // tft6.setCursor(0, 130);
-      // tft6.print("LFO Delay");
-      // tft6.setCursor(0, 160);
-      // tft6.print("LFO Multiplier");
-      // tft6.setCursor(0, 190);
-      // tft6.print("Multi Trigger");
-      // tft6.setCursor(0, 220);
-      // tft6.print("FM Mod Sync");
-      // tft6.setTextColor(ST7735_YELLOW);
-      // tft6.setCursor(160, 160);
-      // switch (lfoMult) {
-      //   case 0:
-      //     tft6.print("x 0.5");
-      //     break;
-      //   case 1:
-      //     tft6.print("x 1.0");
-      //     break;
-      //   case 2:
-      //     tft6.print("x 2.0");
-      //     break;
-      // }
-      // tft6.setCursor(160, 190);
-      // switch (monoMultiSW) {
-      //   case 0:
-      //     tft6.print("Off");
-      //     break;
-      //   case 1:
-      //     tft6.print("On");
-      //     break;
-      // }
-      // tft6.setCursor(160, 220);
-      // switch (oscfmDepth) {
-      //   case 0:
-      //     tft6.print("Off");
-      //     break;
-      //   case 1:
-      //     tft6.print("On");
-      //     break;
-      // }
-
-      // tft6.fillRoundRect(160, 98, int(LFORate / 6.5), 16, 2, ST7735_YELLOW);
-      // tft6.fillRoundRect(160, 128, int(lfoDelay / 6.5), 16, 2, ST7735_YELLOW);
-      // tft6.updateScreen();
       break;
 
     case 7:  // Effects
@@ -931,9 +752,6 @@ void renderCurrentPatchPage(int parameter) {
       tft7.setFont(&FreeSans12pt7b);
       tft7.setTextSize(1);
       tft7.drawFastHLine(0, 58, tft7.width(), ST7735_RED);
-
-      tft7.setTextColor(ST7735_WHITE);
-      tft7.setTextSize(1);
       tft7.setCursor(0, 70);  //effect mix
       tft7.print("Effect:");
       tft7.setCursor(80, 70);
@@ -993,16 +811,13 @@ void renderCurrentPatchPage(int parameter) {
       tft7.setTextColor(ST7735_WHITE);
       tft7.setCursor(0, 100);
       tft7.print("Bank:");
-      tft7.setTextColor(ST7735_YELLOW);
-      tft7.setCursor(80, 100);
-      tft7.print(effectBankSW + 1);
-      tft7.setTextColor(ST7735_WHITE);
       tft7.setCursor(160, 100);
       tft7.print("Number:");
       tft7.setTextColor(ST7735_YELLOW);
       tft7.setCursor(270, 100);
       tft7.print(effectNumSW + 1);
-      tft7.setTextSize(1);
+      tft7.setCursor(80, 100);
+      tft7.print(effectBankSW + 1);
       tft7.setTextColor(ST7735_WHITE);
 
       tft7.setCursor(0, 130);  //effect param1
@@ -1029,7 +844,6 @@ void renderCurrentPatchPage(int parameter) {
       } else {
         // Handle the case where the pointer is NULL (if needed)
       }
-      tft7.setTextSize(1);
       tft7.print(buf3);
 
       tft7.setCursor(0, 160);  //effect param2
@@ -1055,7 +869,6 @@ void renderCurrentPatchPage(int parameter) {
       } else {
         // Handle the case where the pointer is NULL (if needed)
       }
-      tft7.setTextSize(1);
       tft7.print(buf4);
 
       tft7.setCursor(0, 190);  //effect param3
@@ -1081,7 +894,6 @@ void renderCurrentPatchPage(int parameter) {
       } else {
         // Handle the case where the pointer is NULL (if needed)
       }
-      tft7.setTextSize(1);
       tft7.print(buf5);
       tft7.setCursor(0, 220);  //effect mix
       tft7.print("Effects Mix");
@@ -1089,12 +901,12 @@ void renderCurrentPatchPage(int parameter) {
       tft7.drawFastVLine(160, 220, 12, ST7735_RED);
       tft7.drawFastVLine(240, 220, 12, ST7735_RED);
       tft7.drawFastVLine(319, 220, 12, ST7735_RED);
-      tft7.fillRoundRect(160, 128, int(effect1 / 6.5), 16, 2, ST7735_YELLOW);
-      tft7.fillRoundRect(160, 158, int(effect2 / 6.5), 16, 2, ST7735_YELLOW);
-      tft7.fillRoundRect(160, 188, int(effect3 / 6.5), 16, 2, ST7735_YELLOW);
-      tft7.fillRoundRect((int(mixa / 6.7) + 160), 218, 8, 16, 2, ST7735_YELLOW);
-      tft7.updateScreen();
-      //break;
+      tft7.fillRoundRect(160, 128, int(panelData[P_effectPot1] / 6.5), 16, 2, ST7735_YELLOW);
+      tft7.fillRoundRect(160, 158, int(panelData[P_effectPot2] / 6.5), 16, 2, ST7735_YELLOW);
+      tft7.fillRoundRect(160, 188, int(panelData[P_effectPot3] / 6.5), 16, 2, ST7735_YELLOW);
+      tft7.fillRoundRect((int(panelData[P_effectsMix] / 6.7) + 160), 218, 8, 16, 2, ST7735_YELLOW);
+
+      break;
 
     case 8:  // PolyMOD
       // ************************ DISPLAY 8 **************************
@@ -1114,8 +926,6 @@ void renderCurrentPatchPage(int parameter) {
       tft8.drawFastHLine(0, 58, tft8.width(), ST7735_RED);
       tft8.setTextColor(ST7735_WHITE);
 
-      tft8.setTextColor(ST7735_WHITE);
-      tft8.setTextSize(1);
       tft8.setCursor(0, 70);
       tft8.print("Volume");
       tft8.setCursor(0, 100);
@@ -1128,10 +938,10 @@ void renderCurrentPatchPage(int parameter) {
       tft8.drawFastVLine(160, 130, 12, ST7735_RED);
       tft8.drawFastVLine(240, 130, 12, ST7735_RED);
       tft8.drawFastVLine(319, 130, 12, ST7735_RED);
-      tft8.fillRoundRect(160, 68, int(volumeControl / 6.5), 16, 2, ST7735_YELLOW);
-      tft8.fillRoundRect(160, 98, int(amDepth / 6.5), 16, 2, ST7735_YELLOW);
-      tft8.fillRoundRect((int(noiseLevel / 6.7) + 160), 128, 8, 16, 2, ST7735_YELLOW);
-      //tft8.updateScreen();
+      tft8.fillRoundRect(160, 68, int(panelData[P_volumeControl] / 6.5), 16, 2, ST7735_YELLOW);
+      tft8.fillRoundRect(160, 98, int(panelData[P_amDepth] / 6.5), 16, 2, ST7735_YELLOW);
+      tft8.fillRoundRect((int(panelData[P_noiseLevel] / 6.7) + 160), 128, 8, 16, 2, ST7735_YELLOW);
+
       break;
   }
 }
@@ -1181,7 +991,7 @@ void renderCurrentParameterPage() {
           renderVarTriangle(currentFloatValue);
           break;
         case FILTER_ENV:
-          renderEnv(filterAttack * 0.0001, filterDecay * 0.0001, filterSustain, filterRelease * 0.0001);
+          renderEnv(panelData[P_filterAttack] * 0.0001, panelData[P_filterDecay] * 0.0001, panelData[P_filterSustain], panelData[P_filterRelease] * 0.0001);
           break;
       }
       break;

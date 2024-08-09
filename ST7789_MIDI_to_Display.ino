@@ -65,15 +65,6 @@ unsigned int state = PARAMETER;
 //MIDI 5 Pin DIN
 MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, MIDI);
 
-#define OCTO_TOTAL 4
-#define BTN_DEBOUNCE 50
-RoxOctoswitch<OCTO_TOTAL, BTN_DEBOUNCE> octoswitch;
-
-// pins for 74HC165
-#define PIN_DATA 30  // pin 9 on 74HC165 (DATA)
-#define PIN_CLK 31   // pin 2 on 74HC165 (CLK))
-#define PIN_LOAD 32  // pin 1 on 74HC165 (LOAD)
-
 #define SRP_TOTAL 3
 Rox74HC595<SRP_TOTAL> srp;
 
@@ -107,9 +98,6 @@ void setup() {
 
   Serial.begin(115200);
   SPI.begin();
-
-  octoswitch.begin(PIN_DATA, PIN_LOAD, PIN_CLK);
-  octoswitch.setCallback(onButtonPress);
 
   srp.begin(LED_DATA, LED_LATCH, LED_CLK, LED_PWM);
 
@@ -260,10 +248,14 @@ void setup() {
 
   MIDI.begin();
   MIDI.setHandleControlChange(myConvertControlChange);
+  MIDI.setHandleSystemExclusive(onSysExMessage);
+  MIDI.setHandleNoteOn(DinHandleNoteOn);
+  MIDI.setHandleNoteOff(DinHandleNoteOff);
   MIDI.turnThruOn(midi::Thru::Mode::Off);
   Serial.println("MIDI In DIN Listening");
 
   usbMIDI.setHandleControlChange(myConvertControlChange);
+  usbMIDI.setHandleSystemExclusive(onSysExMessage);
   Serial.println("MIDI In USB Listening");
 
   renderCurrentPatchPage(0);
@@ -286,6 +278,23 @@ void setup() {
   tft8.updateScreen();
 }
 
+void DinHandleNoteOn(byte channel, byte note, byte velocity) {
+  if (timerRunning && millis() - timerStart < timerDuration) {
+    // Reset the timer
+    timerStart = millis();
+    Serial.println("Note On received, timer reset.");
+  }
+}
+
+void DinHandleNoteOff(byte channel, byte note, byte velocity) {
+  if (note == 0) {
+    // Start the 500ms timer
+    timerStart = millis();
+    timerRunning = true;
+    Serial.println("Note Off received, timer started.");
+  }
+}
+
 void myConvertControlChange(byte channel, byte number, byte value) {
 
   if (channel == 1) {
@@ -300,238 +309,205 @@ void myConvertControlChange(byte channel, byte number, byte value) {
     myLEDupdate(channel, number, newvalue);
   }
 
-  if (channel == 3) {
-    //Serial.println("Received on channel 3 at the display");
-    int newvalue = value;
-    myPatchUpdate(channel, number, newvalue);
+}
+
+void onSysExMessage(byte *data, unsigned length) {
+  Serial.print("Received SysEx message with length: ");
+  Serial.println(length);
+
+  // Check if the received data length matches our expected length
+  if (length == sysexDataLength + 3) {  // 3 bytes for Manufacturer ID
+
+    for (int i = 0; i < (sysexDataLength - 1); i++) {
+      panelData[i - 1] = map(data[i + 3], 0, 127, 0, 1023);  // Skip the Manufacturer ID bytes
+    }
+
+  } else {
+    Serial.println("Received SysEx message of unexpected length");
   }
 }
 
-void updateglideSW() {
-  parameterGroup = 0;
-  if (glideSW) {
-    midiCCOut(CCglideSW, 127);
-  } else if (!glideSW) {
-    midiCCOut(CCglideSW, 0);
-  }
-}
+// void updateglideSW() {
+//   parameterGroup = 0;
+//   if (panelData[P_glideSW]) {
+//     midiCCOut(CCglideSW, 127);
+//   } else if (!panelData[P_glideSW]) {
+//     midiCCOut(CCglideSW, 0);
+//   }
+// }
 
-void updateupperSW() {
-  parameterGroup = 0;
-  if (upperSW) {
-    midiCCOut(CCupperSW, 127);
-  } else if (!upperSW) {
-    midiCCOut(CCupperSW, 0);
-  }
-}
+// void updateupperSW() {
+//   parameterGroup = 0;
+//   if (upperSW) {
+//     midiCCOut(CCupperSW, 127);
+//   } else if (!upperSW) {
+//     midiCCOut(CCupperSW, 0);
+//   }
+// }
 
-void updatelowerSW() {
-  parameterGroup = 0;
-  if (lowerSW) {
-    midiCCOut(CClowerSW, 127);
-  } else if (!lowerSW) {
-    midiCCOut(CClowerSW, 0);
-  }
-}
+// void updatelowerSW() {
+//   parameterGroup = 0;
+//   if (lowerSW) {
+//     midiCCOut(CClowerSW, 127);
+//   } else if (!lowerSW) {
+//     midiCCOut(CClowerSW, 0);
+//   }
+// }
 
-void updatechordHoldSW() {
-  parameterGroup = 0;
-  if (chordHoldSW) {
-    midiCCOut(CCchordHoldSW, 127);
-  } else if (!glideSW) {
-    midiCCOut(CCchordHoldSW, 0);
-  }
-}
+// void updatechordHoldSW() {
+//   parameterGroup = 0;
+//   if (chordHoldSW) {
+//     midiCCOut(CCchordHoldSW, 127);
+//   } else if (!panelData[P_glideSW]) {
+//     midiCCOut(CCchordHoldSW, 0);
+//   }
+// }
 
-void updatelfoAlt() {
-  parameterGroup = 6;
-  if (lfoAlt) {
-    midiCCOut(CClfoAlt, 127);
-  } else if (!lfoAlt) {
-    midiCCOut(CClfoAlt, 0);
-  }
-}
+// void updatelfoAlt() {
+//   if (panelData[P_lfoAlt]) {
+//     midiCCOut(CClfoAlt, 127);
+//   } else if (!panelData[P_lfoAlt]) {
+//     midiCCOut(CClfoAlt, 0);
+//   }
+// }
 
-void updatefilterPoleSwitch() {
-  parameterGroup = 3;
-  if (filterPoleSW) {
-    midiCCOut(CCfilterPoleSW, 127);
-  } else if (!filterPoleSW) {
-    midiCCOut(CCfilterPoleSW, 0);
-  }
-}
+// void updatefilterPoleSwitch() {
+//   if (panelData[P_filterPoleSW]) {
+//     midiCCOut(CCfilterPoleSW, 127);
+//   } else if (!panelData[P_filterPoleSW]) {
+//     midiCCOut(CCfilterPoleSW, 0);
+//   }
+// }
 
-void updatefilterEGinv() {
-  parameterGroup = 4;
-  if (filterEGinv) {
-    midiCCOut(CCfilterEGinv, 0);
-  } else if (!filterEGinv) {
-    midiCCOut(CCfilterEGinv, 127);
-  }
-}
+// void updatefilterEGinv() {
+//   if (panelData[P_filterEGinv]) {
+//     midiCCOut(CCfilterEGinv, 0);
+//   } else if (!panelData[P_filterEGinv]) {
+//     midiCCOut(CCfilterEGinv, 127);
+//   }
+// }
 
-void updatesyncSwitch() {
-  if (syncSW) {
-    midiCCOut(CCsyncSW, 127);
-  } else if (!syncSW) {
-    midiCCOut(CCsyncSW, 0);
-  }
-}
+// void updatesyncSwitch() {
+//   if (syncSW) {
+//     midiCCOut(CCsyncSW, 127);
+//   } else if (!syncSW) {
+//     midiCCOut(CCsyncSW, 0);
+//   }
+// }
 
-void updateFilterType() {
-  parameterGroup = 3;
-  switch (filterType) {
-    case 0:
-      midiCCOut(CCfilterType, filterType);
-      break;
+// void updateFilterType() {
+//   switch (panelData[P_filterType]) {
+//     case 0:
+//       midiCCOut(CCfilterType, 0);
+//       break;
 
-    case 1:
-      midiCCOut(CCfilterType, filterType);
-      break;
+//     case 1:
+//       midiCCOut(CCfilterType, 8);
+//       break;
 
-    case 2:
-      midiCCOut(CCfilterType, filterType);
-      break;
+//     case 2:
+//       midiCCOut(CCfilterType, 16);
+//       break;
 
-    case 3:
-      midiCCOut(CCfilterType, filterType);
-      break;
+//     case 3:
+//       midiCCOut(CCfilterType, 24);
+//       break;
 
-    case 4:
-      midiCCOut(CCfilterType, filterType);
-      break;
+//     case 4:
+//       midiCCOut(CCfilterType, 32);
+//       break;
 
-    case 5:
-      midiCCOut(CCfilterType, filterType);
-      break;
+//     case 5:
+//       midiCCOut(CCfilterType, 40);
+//       break;
 
-    case 6:
-      midiCCOut(CCfilterType, filterType);
-      break;
+//     case 6:
+//       midiCCOut(CCfilterType, 48);
+//       break;
 
-    case 7:
-      midiCCOut(CCfilterType, filterType);
-      break;
-  }
-}
+//     case 7:
+//       midiCCOut(CCfilterType, 56);
+//       break;
+//   }
+// }
 
-void updateStratusLFOWaveform() {
-  parameterGroup = 6;
-  switch (LFOWaveform) {
-    case 0:
-      midiCCOut(CCLFOWaveform, 0);
-      break;
+// void updateStratusLFOWaveform() {
+//   switch (panelData[P_LFOWaveform]) {
+//     case 0:
+//       midiCCOut(CCLFOWaveform, 0);
+//       break;
 
-    case 1:
-      midiCCOut(CCLFOWaveform, 1);
-      break;
+//     case 1:
+//       midiCCOut(CCLFOWaveform, 8);
+//       break;
 
-    case 2:
-      midiCCOut(CCLFOWaveform, 2);
-      break;
+//     case 2:
+//       midiCCOut(CCLFOWaveform, 16);
+//       break;
 
-    case 3:
-      midiCCOut(CCLFOWaveform, 3);
-      break;
+//     case 3:
+//       midiCCOut(CCLFOWaveform, 24);
+//       break;
 
-    case 4:
-      midiCCOut(CCLFOWaveform, 4);
-      break;
+//     case 4:
+//       midiCCOut(CCLFOWaveform, 32);
+//       break;
 
-    case 5:
-      midiCCOut(CCLFOWaveform, 5);
-      break;
+//     case 5:
+//       midiCCOut(CCLFOWaveform, 40);
+//       break;
 
-    case 6:
-      midiCCOut(CCLFOWaveform, 6);
-      break;
+//     case 6:
+//       midiCCOut(CCLFOWaveform, 48);
+//       break;
 
-    case 7:
-      midiCCOut(CCLFOWaveform, 7);
-      break;
-  }
-}
+//     case 7:
+//       midiCCOut(CCLFOWaveform, 56);
+//       break;
+//   }
+// }
 
-void updatekeyboardMode() {
-  parameterGroup = 5;
-  switch (keyboardMode) {
-    case 0:
-      // srp.writePin(POLY_MODE_RED_LED, LOW);
-      // srp.writePin(POLY_MODE_GREEN_LED, LOW);
-      //allNotesOff();
-      break;
+// void updatekeyboardMode() {
+//   parameterGroup = 5;
+//   switch (keyboardMode) {
+//     case 0:
+//       // srp.writePin(POLY_MODE_RED_LED, LOW);
+//       // srp.writePin(POLY_MODE_GREEN_LED, LOW);
+//       //allNotesOff();
+//       break;
 
-    case 1:
-      // srp.writePin(POLY_MODE_RED_LED, HIGH);
-      // srp.writePin(POLY_MODE_GREEN_LED, LOW);
-      //allNotesOff();
-      break;
+//     case 1:
+//       // srp.writePin(POLY_MODE_RED_LED, HIGH);
+//       // srp.writePin(POLY_MODE_GREEN_LED, LOW);
+//       //allNotesOff();
+//       break;
 
-    case 2:
-      // srp.writePin(POLY_MODE_RED_LED, LOW);
-      // srp.writePin(POLY_MODE_GREEN_LED, HIGH);
-      //allNotesOff();
-      break;
+//     case 2:
+//       // srp.writePin(POLY_MODE_RED_LED, LOW);
+//       // srp.writePin(POLY_MODE_GREEN_LED, HIGH);
+//       //allNotesOff();
+//       break;
 
-    case 3:
-      // srp.writePin(POLY_MODE_RED_LED, HIGH);
-      // srp.writePin(POLY_MODE_GREEN_LED, HIGH);
-      //allNotesOff();
-      break;
-  }
-}
-
-void myPatchUpdate(byte channel, byte control, int value) {
-
-  switch (control) {
-
-    case CCdumpStartedSW:
-      dumpCompleteSW = 1;
-      break;
-
-    case CCdumpCompleteSW:
-      switch (value) {
-        case 0:
-          renderCurrentPatchPage(0);
-          tft0.updateScreen();
-          renderCurrentPatchPage(1);
-          tft1.updateScreen();
-          renderCurrentPatchPage(2);
-          tft2.updateScreen();
-          renderCurrentPatchPage(3);
-          tft3.updateScreen();
-          renderCurrentPatchPage(4);
-          tft4.updateScreen();
-          renderCurrentPatchPage(5);
-          tft5.updateScreen();
-          renderCurrentPatchPage(6);
-          tft6.updateScreen();
-          renderCurrentPatchPage(7);
-          tft7.updateScreen();
-          renderCurrentPatchPage(8);
-          tft8.updateScreen();
-          dumpCompleteSW = 0;
-          break;
-
-        case 1:
-          dumpCompleteSW = 1;
-          break;
-      }
-  }
-}
+//     case 3:
+//       // srp.writePin(POLY_MODE_RED_LED, HIGH);
+//       // srp.writePin(POLY_MODE_GREEN_LED, HIGH);
+//       //allNotesOff();
+//       break;
+//   }
+// }
 
 void myLEDupdate(byte channel, byte control, int value) {
   switch (control) {
 
     case CCLFOWaveform:
-      LFOWaveform = value;
+      panelData[P_LFOWaveform] = value;
       if (dumpCompleteSW == 0) {
-        switch (lfoAlt) {
+        switch (panelData[P_lfoAlt]) {
           case 1:
-            str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(lfo02[LFOWaveform])));
+            str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(lfo02[panelData[P_LFOWaveform]])));
             break;
           case 0:
-            str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(lfo01[LFOWaveform])));
+            str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(lfo01[panelData[P_LFOWaveform]])));
             break;
         }
         // Check if the pointer is valid
@@ -625,21 +601,21 @@ void myLEDupdate(byte channel, byte control, int value) {
     case CCglideSW:
       if (value == 127) {
         srp.writePin(GLIDE_SW_LED, HIGH);
-        glideSW = 1;
+        panelData[P_glideSW] = 1;
       } else if (value == 0) {
         srp.writePin(GLIDE_SW_LED, LOW);
-        glideSW = 0;
+        panelData[P_glideSW] = 0;
       }
       if (dumpCompleteSW == 0) {
         tft0.setFont(&FreeSans12pt7b);
-        if (glideSW == 0) {
+        if (panelData[P_glideSW] == 0) {
           tft0.fillRoundRect(10, 10, 130, 30, 5, ST7735_GREEN);  // Green box for off
         } else {
           tft0.fillRoundRect(10, 10, 130, 30, 5, ST7735_RED);  // Red box for on
         }
         tft0.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
         tft0.setCursor(30, 18);
-        tft0.print(glideSW == 0 ? "Glide Off" : "Glide On");
+        tft0.print(panelData[P_glideSW] == 0 ? "Glide Off" : "Glide On");
         tft0.updateScreen();
       }
       break;
@@ -669,22 +645,22 @@ void myLEDupdate(byte channel, byte control, int value) {
     case CCfilterPoleSW:
       if (value == 127) {
         srp.writePin(FILTER_POLE_LED, HIGH);
-        filterPoleSW = 1;
+        panelData[P_filterPoleSW] = 1;
         tft3.fillRoundRect(240, 10, 70, 30, 5, ST7735_RED);
       } else if (value == 0) {
         srp.writePin(FILTER_POLE_LED, LOW);
-        filterPoleSW = 0;
+        panelData[P_filterPoleSW] = 0;
         tft3.fillRoundRect(240, 10, 70, 30, 5, ST7735_GREEN);  // Green box for off
       }
       if (dumpCompleteSW == 0) {
         tft3.setFont(&FreeSans12pt7b);
 
-        switch (filterPoleSW) {
+        switch (panelData[P_filterPoleSW]) {
           case 1:
-            str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(filter01[filterType])));
+            str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(filter01[panelData[P_filterType]])));
             break;
           case 0:
-            str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(filter02[filterType])));
+            str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(filter02[panelData[P_filterType]])));
             break;
         }
         // Check if the pointer is valid
@@ -698,7 +674,7 @@ void myLEDupdate(byte channel, byte control, int value) {
 
         tft3.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
         tft3.setCursor(260, 18);
-        tft3.print(filterPoleSW == 0 ? "Off" : "On");
+        tft3.print(panelData[P_filterPoleSW] == 0 ? "Off" : "On");
 
         // Set range label and value inside a box along the top
         tft3.fillRoundRect(10, 10, 200, 30, 5, ST7735_YELLOW);  // Background box for range
@@ -733,33 +709,33 @@ void myLEDupdate(byte channel, byte control, int value) {
     case CClfoAlt:
       if (value == 127) {
         srp.writePin(LFO_ALT_LED, HIGH);
-        lfoAlt = 1;
+        panelData[P_lfoAlt] = 1;
       } else if (value == 0) {
         srp.writePin(LFO_ALT_LED, LOW);
-        lfoAlt = 0;
+        panelData[P_lfoAlt] = 0;
       }
       if (dumpCompleteSW == 0) {
-        if (lfoAlt == 1) {
+        if (panelData[P_lfoAlt] == 1) {
           tft6.fillRoundRect(180, 50, 130, 30, 5, ST7735_RED);
         } else {
           tft6.fillRoundRect(180, 50, 130, 30, 5, ST7735_GREEN);
         }
         tft6.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
         tft6.setCursor(195, 58);
-        tft6.print(lfoAlt == 0 ? "Alt Off" : "Alt On");
+        tft6.print(panelData[P_lfoAlt] == 0 ? "Alt Off" : "Alt On");
         tft6.updateScreen();
       }
       break;
 
     case CCfilterType:
-      filterType = value;
+      panelData[P_filterType] = value;
       if (dumpCompleteSW == 0) {
-        switch (filterPoleSW) {
+        switch (panelData[P_filterPoleSW]) {
           case 1:
-            str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(filter01[filterType])));
+            str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(filter01[panelData[P_filterType]])));
             break;
           case 0:
-            str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(filter02[filterType])));
+            str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(filter02[panelData[P_filterType]])));
             break;
         }
         // Check if the pointer is valid
@@ -770,14 +746,14 @@ void myLEDupdate(byte channel, byte control, int value) {
           // Handle the case where the pointer is NULL (if needed)
         }
         tft3.setFont(&FreeSans12pt7b);
-        if (filterPoleSW == 0) {
+        if (panelData[P_filterPoleSW] == 0) {
           tft3.fillRoundRect(240, 10, 70, 30, 5, ST7735_GREEN);  // Green box for off
         } else {
           tft3.fillRoundRect(240, 10, 70, 30, 5, ST7735_RED);  // Red box for on
         }
         tft3.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
         tft3.setCursor(260, 18);
-        tft3.print(filterPoleSW == 0 ? "Off" : "On");
+        tft3.print(panelData[P_filterPoleSW] == 0 ? "Off" : "On");
 
         // Set range label and value inside a box along the top
         tft3.fillRoundRect(10, 10, 200, 30, 5, ST7735_YELLOW);  // Background box for range
@@ -789,14 +765,14 @@ void myLEDupdate(byte channel, byte control, int value) {
       break;
 
     case CCosc1Oct:
-      oct1 = value;
+      panelData[P_osc1Range] = value;
       if (dumpCompleteSW == 0) {
         tft1.setFont(&FreeSans12pt7b);
         // Set range label and value inside a box along the top
         tft1.fillRoundRect(180, 10, 130, 30, 5, ST7735_YELLOW);  // Background box for range
         tft1.setTextColor(ST7735_BLACK);
         tft1.setCursor(195, 18);
-        switch (oct1) {
+        switch (panelData[P_osc1Range]) {
           case 0:
             tft1.print("Range 32");
             break;
@@ -812,14 +788,14 @@ void myLEDupdate(byte channel, byte control, int value) {
       break;
 
     case CCosc2Oct:
-      oct2 = value;
+      panelData[P_osc2Range] = value;
       if (dumpCompleteSW == 0) {
         tft2.setFont(&FreeSans12pt7b);
         // Set range label and value inside a box along the top
         tft2.fillRoundRect(180, 10, 130, 30, 5, ST7735_YELLOW);  // Background box for range
         tft2.setTextColor(ST7735_BLACK);
         tft2.setCursor(195, 18);
-        switch (oct2) {
+        switch (panelData[P_osc2Range]) {
           case 0:
             tft2.print("Range 32");
             break;
@@ -837,10 +813,10 @@ void myLEDupdate(byte channel, byte control, int value) {
     case CCfilterEGinv:
       if (value == 127) {
         srp.writePin(EG_INVERT_LED, HIGH);
-        filterEGinv = 1;
+        panelData[P_filterEGinv] = 1;
       } else if (value == 0) {
         srp.writePin(EG_INVERT_LED, LOW);
-        filterEGinv = 0;
+        panelData[P_filterEGinv] = 0;
       }
       // if (!dumpCompleteSW) {
       //   renderCurrentPatchPage(4);
@@ -855,58 +831,58 @@ void myControlChange(byte channel, byte control, int value) {
       // TFT 0
 
     case CCglideTime:
-      glideTime = value;
+      panelData[P_glideTime] = value;
       if (!dumpCompleteSW) {
-        drawBar0(6, glideTime, NUM_STEPS, STEP_HEIGHT);
+        drawBar0(6, panelData[P_glideTime], NUM_STEPS, STEP_HEIGHT);
         tft0.updateScreen();
       }
       break;
 
       // TFT 1
     case CCosc1PW:
-      osc1PW = value;
+      panelData[P_osc1PW] = value;
       if (dumpCompleteSW == 0) {
-        drawPWIndicator1(6, osc1PW);
+        drawPWIndicator1(6, panelData[P_osc1PW]);
         tft1.updateScreen();
       }
       break;
 
     case CCosc1PWM:
-      osc1PWM = value;
+      panelData[P_osc1PWM] = value;
       if (dumpCompleteSW == 0) {
-        drawBar1(52, osc1PWM, NUM_STEPS, STEP_HEIGHT);
+        drawBar1(52, panelData[P_osc1PWM], NUM_STEPS, STEP_HEIGHT);
         tft1.updateScreen();
       }
       break;
 
     case CCosc1SawLevel:
-      osc1sawLevel = value;
+      panelData[P_osc1SawLevel] = value;
       if (dumpCompleteSW == 0) {
-        drawBar1(192, osc1sawLevel, NUM_STEPS, STEP_HEIGHT);
+        drawBar1(192, panelData[P_osc1SawLevel], NUM_STEPS, STEP_HEIGHT);
         tft1.updateScreen();
       }
       break;
 
     case CCosc1PulseLevel:
-      osc1pulseLevel = value;
+      panelData[P_osc1PulseLevel] = value;
       if (dumpCompleteSW == 0) {
-        drawBar1(236, osc1pulseLevel, NUM_STEPS, STEP_HEIGHT);
+        drawBar1(236, panelData[P_osc1PulseLevel], NUM_STEPS, STEP_HEIGHT);
         tft1.updateScreen();
       }
       break;
 
     case CCosc1SubLevel:
-      osc1subLevel = value;
+      panelData[P_osc1SubLevel] = value;
       if (dumpCompleteSW == 0) {
-        drawBar1(282, osc1subLevel, NUM_STEPS, STEP_HEIGHT);
+        drawBar1(282, panelData[P_osc1SubLevel], NUM_STEPS, STEP_HEIGHT);
         tft1.updateScreen();
       }
       break;
 
     case CCoscfmDepth:
-      oscfmDepth = value;
+      panelData[P_fmDepth] = value;
       if (dumpCompleteSW == 0) {
-        drawBar1(98, oscfmDepth, NUM_STEPS, STEP_HEIGHT);
+        drawBar1(98, panelData[P_fmDepth], NUM_STEPS, STEP_HEIGHT);
         tft1.updateScreen();
       }
       break;
@@ -914,57 +890,57 @@ void myControlChange(byte channel, byte control, int value) {
       // TFT 2
 
     case CCosc2PW:
-      osc2PW = value;
+      panelData[P_osc2PW] = value;
       if (dumpCompleteSW == 0) {
-        drawPWIndicator2(6, osc2PW);
+        drawPWIndicator2(6, panelData[P_osc2PW]);
         tft2.updateScreen();
       }
       break;
 
     case CCosc2PWM:
-      osc2PWM = value;
+      panelData[P_osc2PWM] = value;
       if (dumpCompleteSW == 0) {
-        drawBar2(52, osc2PWM, NUM_STEPS, STEP_HEIGHT);
+        drawBar2(52, panelData[P_osc2PWM], NUM_STEPS, STEP_HEIGHT);
         tft2.updateScreen();
       }
       break;
 
     case CCosc2Detune:
-      osc2detune = value;
+      panelData[P_osc2Detune] = value;
       if (dumpCompleteSW == 0) {
-        drawBar2(98, osc2detune, NUM_STEPS, STEP_HEIGHT);
+        drawBar2(98, panelData[P_osc2Detune], NUM_STEPS, STEP_HEIGHT);
         tft2.updateScreen();
       }
       break;
 
     case CCosc2Interval:
-      osc2interval = value;
+      panelData[P_osc2Interval] = value;
       if (dumpCompleteSW == 0) {
-        drawBar2(144, osc2interval, DET_STEPS, DET_STEP_HEIGHT);
+        drawBar2(144, panelData[P_osc2Interval], DET_STEPS, DET_STEP_HEIGHT);
         tft2.updateScreen();
       }
       break;
 
     case CCosc2sawLevel:
-      osc2sawLevel = value;
+      panelData[P_osc2SawLevel] = value;
       if (dumpCompleteSW == 0) {
-        drawBar2(192, osc2sawLevel, NUM_STEPS, STEP_HEIGHT);
+        drawBar2(192, panelData[P_osc2SawLevel], NUM_STEPS, STEP_HEIGHT);
         tft2.updateScreen();
       }
       break;
 
     case CCosc2pulseLevel:
-      osc2pulseLevel = value;
+      panelData[P_osc2PulseLevel] = value;
       if (dumpCompleteSW == 0) {
-        drawBar2(236, osc2pulseLevel, NUM_STEPS, STEP_HEIGHT);
+        drawBar2(236, panelData[P_osc2PulseLevel], NUM_STEPS, STEP_HEIGHT);
         tft2.updateScreen();
       }
       break;
 
     case CCosc2triangleLevel:
-      osc2triLevel = value;
+      panelData[P_osc2TriangleLevel] = value;
       if (dumpCompleteSW == 0) {
-        drawBar2(282, osc2triLevel, NUM_STEPS, STEP_HEIGHT);
+        drawBar2(282, panelData[P_osc2TriangleLevel], NUM_STEPS, STEP_HEIGHT);
         tft2.updateScreen();
       }
       break;
@@ -972,241 +948,241 @@ void myControlChange(byte channel, byte control, int value) {
       // TFT 3
 
     case CCKeyTrack:
-      keyTrack = value;
+      panelData[P_keytrack] = value;
       if (dumpCompleteSW == 0) {
-        drawBar3(144, keyTrack, NUM_STEPS, STEP_HEIGHT);
+        drawBar3(144, panelData[P_keytrack], NUM_STEPS, STEP_HEIGHT);
         tft3.updateScreen();
       }
       break;
 
     case CCfilterCutoff:
-      filterCutoff = value;
+      panelData[P_filterCutoff] = value;
       if (dumpCompleteSW == 0) {
-        drawBar3(6, filterCutoff, NUM_STEPS, STEP_HEIGHT);
+        drawBar3(6, panelData[P_filterCutoff], NUM_STEPS, STEP_HEIGHT);
         tft3.updateScreen();
       }
       break;
 
     case CCfilterLFO:
-      filterLFO = value;
+      panelData[P_filterLFO] = value;
       if (dumpCompleteSW == 0) {
-        drawBar3(192, filterLFO, NUM_STEPS, STEP_HEIGHT);
+        drawBar3(192, panelData[P_filterLFO], NUM_STEPS, STEP_HEIGHT);
         tft3.updateScreen();
       }
       break;
 
     case CCfilterRes:
-      filterRes = value;
+      panelData[P_filterRes] = value;
       if (dumpCompleteSW == 0) {
-        drawBar3(52, filterRes, NUM_STEPS, STEP_HEIGHT);
+        drawBar3(52, panelData[P_filterRes], NUM_STEPS, STEP_HEIGHT);
         tft3.updateScreen();
       }
       break;
 
     case CCfilterEGlevel:
-      filterEGlevel = value;
+      panelData[P_filterEGlevel] = value;
       if (dumpCompleteSW == 0) {
-        drawBar3(98, filterEGlevel, NUM_STEPS, STEP_HEIGHT);
+        drawBar3(98, panelData[P_filterEGlevel], NUM_STEPS, STEP_HEIGHT);
         tft3.updateScreen();
       }
       break;
 
     case CCeffect1:
-      effect1 = value;
+      panelData[P_effectPot1] = value;
       // if (!dumpCompleteSW) {
       //   renderCurrentPatchPage(7);
       // }
       break;
 
     case CCeffect2:
-      effect2 = value;
+      panelData[P_effectPot2] = value;
       // if (!dumpCompleteSW) {
       //   renderCurrentPatchPage(7);
       // }
       break;
 
     case CCeffect3:
-      effect3 = value;
+      panelData[P_effectPot3] = value;
       // if (!dumpCompleteSW) {
       //   renderCurrentPatchPage(7);
       // }
       break;
 
     case CCeffectMix:
-      mixa = map(value, 0, readRes, 0, readRes);
+      panelData[P_effectsMix] = map(value, 0, readRes, 0, readRes);
       // if (!dumpCompleteSW) {
       //   renderCurrentPatchPage(7);
       // }
       break;
 
     case CCnoiseLevel:
-      noiseLevel = value;
+      panelData[P_noiseLevel] = value;
       // if (!dumpCompleteSW) {
       //   renderCurrentPatchPage(8);
       // }
       break;
 
     case CCLFORate:
-      LFORate = value;
+      panelData[P_LFORate] = value;
       if (dumpCompleteSW == 0) {
-        drawBar6(6, LFORate, NUM_STEPS, STEP_HEIGHT);
+        drawBar6(6, panelData[P_LFORate], NUM_STEPS, STEP_HEIGHT);
         tft6.updateScreen();
       }
       break;
 
     case CCfilterAttack:
-      filterAttack = value;
+      panelData[P_filterAttack] = value;
       // if (!dumpCompleteSW) {
       //   renderCurrentPatchPage(4);
       // }
       break;
 
     case CCfilterDecay:
-      filterDecay = value;
+      panelData[P_filterDecay] = value;
       // if (!dumpCompleteSW) {
       //   renderCurrentPatchPage(4);
       // }
       break;
 
     case CCfilterSustain:
-      filterSustain = value;
+      panelData[P_filterSustain] = value;
       // if (!dumpCompleteSW) {
       //   renderCurrentPatchPage(4);
       // }
       break;
 
     case CCfilterRelease:
-      filterRelease = value;
+      panelData[P_filterRelease] = value;
       // if (!dumpCompleteSW) {
       //   renderCurrentPatchPage(4);
       // }
       break;
 
     case CCampAttack:
-      ampAttack = value;
-      oldampAttack = value;
+      panelData[P_ampAttack] = value;
+      panelData[P_oldampAttack] = value;
       // if (!dumpCompleteSW) {
       //   renderCurrentPatchPage(5);
       // }
       break;
 
     case CCampDecay:
-      ampDecay = value;
-      oldampDecay = value;
+      panelData[P_ampDecay] = value;
+      panelData[P_oldampDecay] = value;
       // if (!dumpCompleteSW) {
       //   renderCurrentPatchPage(5);
       // }
       break;
 
     case CCampSustain:
-      ampSustain = value;
-      oldampSustain = value;
+      panelData[P_ampSustain] = value;
+      panelData[P_oldampSustain] = value;
       // if (!dumpCompleteSW) {
       //   renderCurrentPatchPage(5);
       // }
       break;
 
     case CCampRelease:
-      ampRelease = value;
-      oldampRelease = value;
+      panelData[P_ampRelease] = value;
+      panelData[P_oldampRelease] = value;
       // if (!dumpCompleteSW) {
       //   renderCurrentPatchPage(5);
       // }
       break;
 
     case CCvolumeControl:
-      volumeControl = value;
+      panelData[P_volumeControl] = value;
       // if (!dumpCompleteSW) {
       //   renderCurrentPatchPage(8);
       // }
       break;
 
     case CCLFODelay:
-      lfoDelay = value;
+      panelData[P_LFODelay] = value;
       if (dumpCompleteSW == 0) {
-        drawBar6(52, lfoDelay, NUM_STEPS, STEP_HEIGHT);
+        drawBar6(52, panelData[P_LFODelay], NUM_STEPS, STEP_HEIGHT);
         tft6.updateScreen();
       }
       break;
 
     case CCpwLFO:
-      PWRate = value;
+      panelData[P_pwLFO] = value;
       if (dumpCompleteSW == 0) {
-        drawBar6(98, PWRate, NUM_STEPS, STEP_HEIGHT);
+        drawBar6(98, panelData[P_pwLFO], NUM_STEPS, STEP_HEIGHT);
         tft6.updateScreen();
       }
       break;
 
     case CCmodWheelDepth:
-      modWheelDepth = value;
+      panelData[P_modWheelDepth] = value;
       if (dumpCompleteSW == 0) {
-        drawBar6(144, modWheelDepth, NUM_STEPS, STEP_HEIGHT);
+        drawBar6(144, panelData[P_modWheelDepth], NUM_STEPS, STEP_HEIGHT);
         tft6.updateScreen();
       }
       break;
 
     case CCamDepth:
-      amDepth = value;
+      panelData[P_amDepth] = value;
       // if (!dumpCompleteSW) {
       //   renderCurrentPatchPage(8);
       // }
       break;
 
     case CCmodwheel:
-      switch (modWheelDepth) {
+      switch (panelData[P_modWheelDepth]) {
 
         case 0:
-          oscfmDepth = 0;
+          panelData[P_fmDepth] = 0;
           break;
 
         case 1:
-          modWheelLevel = (value / 5);
-          oscfmDepth = (int(modWheelLevel));
+          panelData[P_modWheelLevel] = (value / 5);
+          panelData[P_fmDepth] = (int(panelData[P_modWheelLevel]));
           break;
 
         case 2:
-          modWheelLevel = (value / 4);
-          oscfmDepth = (int(modWheelLevel));
+          panelData[P_modWheelLevel] = (value / 4);
+          panelData[P_fmDepth] = (int(panelData[P_modWheelLevel]));
           break;
 
         case 3:
-          modWheelLevel = (value / 3.5);
-          oscfmDepth = (int(modWheelLevel));
+          panelData[P_modWheelLevel] = (value / 3.5);
+          panelData[P_fmDepth] = (int(panelData[P_modWheelLevel]));
           break;
 
         case 4:
-          modWheelLevel = (value / 3);
-          oscfmDepth = (int(modWheelLevel));
+          panelData[P_modWheelLevel] = (value / 3);
+          panelData[P_fmDepth] = (int(panelData[P_modWheelLevel]));
           break;
 
         case 5:
-          modWheelLevel = (value / 2.5);
-          oscfmDepth = (int(modWheelLevel));
+          panelData[P_modWheelLevel] = (value / 2.5);
+          panelData[P_fmDepth] = (int(panelData[P_modWheelLevel]));
           break;
 
         case 6:
-          modWheelLevel = (value / 2);
-          oscfmDepth = (int(modWheelLevel));
+          panelData[P_modWheelLevel] = (value / 2);
+          panelData[P_fmDepth] = (int(panelData[P_modWheelLevel]));
           break;
 
         case 7:
-          modWheelLevel = (value / 1.75);
-          oscfmDepth = (int(modWheelLevel));
+          panelData[P_modWheelLevel] = (value / 1.75);
+          panelData[P_fmDepth] = (int(panelData[P_modWheelLevel]));
           break;
 
         case 8:
-          modWheelLevel = (value / 1.5);
-          oscfmDepth = (int(modWheelLevel));
+          panelData[P_modWheelLevel] = (value / 1.5);
+          panelData[P_fmDepth] = (int(panelData[P_modWheelLevel]));
           break;
 
         case 9:
-          modWheelLevel = (value / 1.25);
-          oscfmDepth = (int(modWheelLevel));
+          panelData[P_modWheelLevel] = (value / 1.25);
+          panelData[P_fmDepth] = (int(panelData[P_modWheelLevel]));
           break;
 
         case 10:
-          modWheelLevel = value;
-          oscfmDepth = (int(modWheelLevel));
+          panelData[P_modWheelLevel] = value;
+          panelData[P_fmDepth] = (int(panelData[P_modWheelLevel]));
           break;
       }
       break;
@@ -1214,88 +1190,88 @@ void myControlChange(byte channel, byte control, int value) {
       // Switches ////////////////////////////////////////////////
 
     case CCfilterType:
-      filterType = value;
-      updateFilterType();
+      panelData[P_filterType] = value;
+      //updateFilterType();
       break;
 
     case CCLFOWaveform:
-      LFOWaveform = value;
-      updateStratusLFOWaveform();
+      panelData[P_LFOWaveform] = value;
+      //updateStratusLFOWaveform();
       break;
 
     case CCglideSW:
-      value > 0 ? glideSW = 1 : glideSW = 0;
-      updateglideSW();
+      value > 0 ? panelData[P_glideSW] = 1 : panelData[P_glideSW] = 0;
+      //updateglideSW();
       break;
 
     case CCupperSW:
       upperSW = 1;
       lowerSW = 0;
-      updateupperSW();
+      //updateupperSW();
       break;
 
     case CClowerSW:
       lowerSW = 1;
       upperSW = 0;
-      updatelowerSW();
+      //updatelowerSW();
       break;
 
     case CCchordHoldSW:
       value > 0 ? chordHoldSW = 1 : chordHoldSW = 0;
-      updatechordHoldSW();
+      //updatechordHoldSW();
       break;
 
     case CCfilterPoleSW:
-      value > 0 ? filterPoleSW = 1 : filterPoleSW = 0;
-      updatefilterPoleSwitch();
+      value > 0 ? panelData[P_filterPoleSW] = 1 : panelData[P_filterPoleSW] = 0;
+      //updatefilterPoleSwitch();
       break;
 
     case CCfilterEGinv:
-      value > 0 ? filterEGinv = 1 : filterEGinv = 0;
-      updatefilterEGinv();
+      value > 0 ? panelData[P_filterEGinv] = 1 : panelData[P_filterEGinv] = 0;
+      //updatefilterEGinv();
       break;
 
     case CCsyncSW:
       value > 0 ? syncSW = 1 : syncSW = 0;
-      updatesyncSwitch();
+      //updatesyncSwitch();
       break;
 
-    case CCosc1Oct:
-      switch (oct1) {
-        case 0:
-          midiCCOut(CCosc1Oct, 0);
-          break;
+    // case CCosc1Oct:
+    //   switch (panelData[P_osc1Range]) {
+    //     case 0:
+    //       midiCCOut(CCosc1Oct, 0);
+    //       break;
 
-        case 1:
-          midiCCOut(CCosc1Oct, 64);
-          break;
+    //     case 1:
+    //       midiCCOut(CCosc1Oct, 64);
+    //       break;
 
-        case 2:
-          midiCCOut(CCosc1Oct, 127);
-          break;
-      }
-      break;
+    //     case 2:
+    //       midiCCOut(CCosc1Oct, 127);
+    //       break;
+    //   }
+    //   break;
 
-    case CCosc2Oct:
-      switch (oct2) {
-        case 0:
-          midiCCOut(CCosc2Oct, 0);
-          break;
+    // case CCosc2Oct:
+    //   switch (panelData[P_osc2Range]) {
+    //     case 0:
+    //       midiCCOut(CCosc2Oct, 0);
+    //       break;
 
-        case 1:
-          midiCCOut(CCosc2Oct, 64);
-          break;
+    //     case 1:
+    //       midiCCOut(CCosc2Oct, 64);
+    //       break;
 
-        case 2:
-          midiCCOut(CCosc2Oct, 127);
-          break;
-      }
-      break;
+    //     case 2:
+    //       midiCCOut(CCosc2Oct, 127);
+    //       break;
+    //   }
+    //   break;
 
 
     case CClfoAlt:
-      value > 0 ? lfoAlt = 1 : lfoAlt = 0;
-      updatelfoAlt();
+      value > 0 ? panelData[P_lfoAlt] = 1 : panelData[P_lfoAlt] = 0;
+      //updatelfoAlt();
       break;
 
       // case CClfoMult:
@@ -1303,12 +1279,12 @@ void myControlChange(byte channel, byte control, int value) {
       //   break;
 
       // case CCfilterVelSW:
-      //   value > 0 ? filterVelSW = 1 : filterVelSW = 0;
+      //   value > 0 ? panelData[P_filterVel] = 1 : panelData[P_filterVel] = 0;
       //   updatefilterVelSW();
       //   break;
 
       // case CCampVelSW:
-      //   value > 0 ? ampVelSW = 1 : ampVelSW = 0;
+      //   value > 0 ? panelData[P_vcaVel] = 1 : panelData[P_vcaVel] = 0;
       //   updateampVelSW();
       //   break;
 
@@ -1321,7 +1297,7 @@ void myControlChange(byte channel, byte control, int value) {
       //   break;
 
       // case CCAmpGatedSW:
-      //   value > 0 ? AmpGatedSW = 1 : AmpGatedSW = 0;
+      //   value > 0 ? panelData[P_vcaGate] = 1 : panelData[P_vcaGate] = 0;
       //   updateAmpGatedSW();
       //   break;
 
@@ -1339,7 +1315,7 @@ void myControlChange(byte channel, byte control, int value) {
       //   break;
 
     case CCkeyboardMode:
-      updatekeyboardMode();
+      //updatekeyboardMode();
       break;
 
       // case CCNotePriority:
@@ -1357,199 +1333,6 @@ void myControlChange(byte channel, byte control, int value) {
   }
 }
 
-void onButtonPress(uint16_t btnIndex, uint8_t btnType) {
-
-  if (btnIndex == GLIDE_SW && btnType == ROX_PRESSED) {
-    glideSW = !glideSW;
-    myControlChange(midiChannel, CCglideSW, glideSW);
-  }
-
-  if (btnIndex == FILTER_POLE_SW && btnType == ROX_PRESSED) {
-    filterPoleSW = !filterPoleSW;
-    myControlChange(midiChannel, CCfilterPoleSW, filterPoleSW);
-  }
-
-  if (btnIndex == EG_INVERT_SW && btnType == ROX_PRESSED) {
-    filterEGinv = !filterEGinv;
-    myControlChange(midiChannel, CCfilterEGinv, filterEGinv);
-  }
-
-  if (btnIndex == DCO1_OCT_SW && btnType == ROX_PRESSED) {
-    oct1 = oct1 + 1;
-    if (oct1 > 2) {
-      oct1 = 0;
-    }
-    myControlChange(midiChannel, CCosc1Oct, oct1);
-  }
-
-  if (btnIndex == DCO2_OCT_SW && btnType == ROX_PRESSED) {
-    oct2 = oct2 + 1;
-    if (oct2 > 2) {
-      oct2 = 0;
-    }
-    myControlChange(midiChannel, CCosc2Oct, oct2);
-  }
-
-  if (btnIndex == FILTER_TYPE_SW && btnType == ROX_PRESSED) {
-    filterType = filterType + 1;
-    if (filterType > 7) {
-      filterType = 0;
-    }
-    myControlChange(midiChannel, CCfilterType, filterType);
-  }
-
-  if (btnIndex == LFO_ALT_SW && btnType == ROX_PRESSED) {
-    lfoAlt = !lfoAlt;
-    myControlChange(midiChannel, CClfoAlt, lfoAlt);
-  }
-
-  if (btnIndex == PW_LFO_WAVEFORM_SW && btnType == ROX_PRESSED) {
-    pwLFOwaveformSW = pwLFOwaveformSW + 1;
-    if (pwLFOwaveformSW > 7) {
-      pwLFOwaveformSW = 0;
-    }
-    myControlChange(midiChannel, CCpwLFOwaveformSW, pwLFOwaveformSW);
-  }
-
-  if (btnIndex == LFO_WAVEFORM_SW && btnType == ROX_PRESSED) {
-    LFOWaveform = LFOWaveform + 1;
-    if (LFOWaveform > 7) {
-      LFOWaveform = 0;
-    }
-    myControlChange(midiChannel, CCLFOWaveform, LFOWaveform);
-  }
-
-  if (btnIndex == FILTER_ENV_VELOCITY_SW && btnType == ROX_PRESSED) {
-    filterVelSW = !filterVelSW;
-    myControlChange(midiChannel, CCfilterVel, filterVelSW);
-  }
-
-  if (btnIndex == AMP_ENV_VELOCITY_SW && btnType == ROX_PRESSED) {
-    ampVelSW = !ampVelSW;
-    myControlChange(midiChannel, CCvcaVel, ampVelSW);
-  }
-
-  if (btnIndex == FILTER_ENV_LOOP_SW && btnType == ROX_PRESSED) {
-    FilterLoop = FilterLoop + 1;
-    if (FilterLoop > 2) {
-      FilterLoop = 0;
-    }
-    myControlChange(midiChannel, CCFilterLoop, FilterLoop);
-  }
-
-  if (btnIndex == AMP_ENV_LOOP_SW && btnType == ROX_PRESSED) {
-    AmpLoop = AmpLoop + 1;
-    if (AmpLoop > 2) {
-      AmpLoop = 0;
-    }
-    myControlChange(midiChannel, CCAmpLoop, AmpLoop);
-  }
-
-  if (btnIndex == AMP_GATED_SW && btnType == ROX_PRESSED) {
-    AmpGatedSW = !AmpGatedSW;
-    myControlChange(midiChannel, CCAmpGatedSW, AmpGatedSW);
-  }
-
-  if (btnIndex == EFFECT_NUMBER_SW && btnType == ROX_PRESSED) {
-    effectNumSW = effectNumSW + 1;
-    if (effectNumSW > 7) {
-      effectNumSW = 0;
-    }
-    myControlChange(midiChannel, CCeffectNumSW, effectNumSW);
-  }
-
-  if (btnIndex == EFFECT_BANK_SW && btnType == ROX_PRESSED) {
-    effectBankSW = effectBankSW + 1;
-    if (effectBankSW > 3) {
-      effectBankSW = 0;
-    }
-    myControlChange(midiChannel, CCeffectBankSW, effectBankSW);
-  }
-
-  if (btnIndex == FILTER_ENV_LIN_LOG_SW && btnType == ROX_PRESSED) {
-    filterenvLinLogSW = !filterenvLinLogSW;
-    myControlChange(midiChannel, CCfilterenvLinLogSW, filterenvLinLogSW);
-  }
-
-  if (btnIndex == AMP_ENV_LIN_LOG_SW && btnType == ROX_PRESSED) {
-    ampenvLinLogSW = !ampenvLinLogSW;
-    myControlChange(midiChannel, CCampenvLinLogSW, ampenvLinLogSW);
-  }
-
-  if (btnIndex == POLY1_SW && btnType == ROX_PRESSED) {
-    keyboardMode = 0;
-    myControlChange(midiChannel, CCkeyboardMode, keyboardMode);
-  }
-
-  if (btnIndex == POLY2_SW && btnType == ROX_PRESSED) {
-    keyboardMode = 1;
-    myControlChange(midiChannel, CCkeyboardMode, keyboardMode);
-  }
-
-  if (btnIndex == UNISON_SW && btnType == ROX_PRESSED) {
-    keyboardMode = 2;
-    myControlChange(midiChannel, CCkeyboardMode, keyboardMode);
-  }
-
-  if (btnIndex == MONO_SW && btnType == ROX_PRESSED) {
-    keyboardMode = 3;
-    myControlChange(midiChannel, CCkeyboardMode, keyboardMode);
-  }
-
-  if (btnIndex == KEYBOARD_SW && btnType == ROX_PRESSED) {
-    playMode = playMode + 1;
-    if (playMode > 2) {
-      playMode = 0;
-    }
-    myControlChange(midiChannel, CCplayMode, playMode);
-  }
-
-  if (btnIndex == PRIORITY_SW && btnType == ROX_PRESSED) {
-    NotePriority = NotePriority + 1;
-    if (NotePriority > 2) {
-      NotePriority = 0;
-    }
-    myControlChange(midiChannel, CCNotePriority, NotePriority);
-  }
-
-  if (btnIndex == LFO_MULTI_MONO_SW && btnType == ROX_PRESSED) {
-    monoMultiSW = !monoMultiSW;
-    myControlChange(midiChannel, CCmonoMulti, monoMultiSW);
-  }
-
-  if (btnIndex == CHORD_HOLD_SW && btnType == ROX_PRESSED) {
-    chordHoldSW = !chordHoldSW;
-    myControlChange(midiChannel, CCchordHoldSW, chordHoldSW);
-  }
-
-  if (btnIndex == SYNC_SW && btnType == ROX_PRESSED) {
-    syncSW = !syncSW;
-    myControlChange(midiChannel, CCsyncSW, syncSW);
-  }
-
-  if (btnIndex == LOWER_SW && btnType == ROX_PRESSED) {
-    lowerSW = 1;
-    upperSW = 0;
-    myControlChange(midiChannel, CClowerSW, lowerSW);
-  }
-
-  if (btnIndex == UPPER_SW && btnType == ROX_PRESSED) {
-    lowerSW = 0;
-    upperSW = 1;
-    myControlChange(midiChannel, CCupperSW, upperSW);
-  }
-
-  if (btnIndex == PM_DCO1_DEST_SW && btnType == ROX_PRESSED) {
-    pmDestDCO1SW = !pmDestDCO1SW;
-    myControlChange(midiChannel, CCpmDestDCO1SW, pmDestDCO1SW);
-  }
-
-  if (btnIndex == PM_FILT_ENV_DEST_SW && btnType == ROX_PRESSED) {
-    pmDestFilterSW = !pmDestFilterSW;
-    myControlChange(midiChannel, CCpmDestFilterSW, pmDestFilterSW);
-  }
-}
-
 void midiCCOut(int CCnumberTosend, int value) {
   Serial.print("MIDI CC ");
   Serial.println(CCnumberTosend);
@@ -1562,6 +1345,32 @@ void loop() {
 
   MIDI.read(MIDI_CHANNEL_OMNI);
 
-  octoswitch.update();  // read all the buttons for the Synth
   srp.update();         // update all the LEDs in the buttons
+
+  // Check if the timer has expired
+  if (timerRunning && millis() - timerStart >= timerDuration) {
+    // Timer expired, do something
+
+    renderCurrentPatchPage(0);
+    tft0.updateScreen();
+    renderCurrentPatchPage(1);
+    tft1.updateScreen();
+    renderCurrentPatchPage(2);
+    tft2.updateScreen();
+    renderCurrentPatchPage(3);
+    tft3.updateScreen();
+    renderCurrentPatchPage(4);
+    tft4.updateScreen();
+    renderCurrentPatchPage(5);
+    tft5.updateScreen();
+    renderCurrentPatchPage(6);
+    tft6.updateScreen();
+    renderCurrentPatchPage(7);
+    tft7.updateScreen();
+    renderCurrentPatchPage(8);
+    tft8.updateScreen();
+
+    Serial.println("Timer expired.");
+    timerRunning = false;
+  }
 }

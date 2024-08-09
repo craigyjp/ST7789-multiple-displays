@@ -1,3 +1,10 @@
+const int sysexDataLength = 72;
+byte receivedSysExData[sysexDataLength];
+
+unsigned long timerStart = 0;
+bool timerRunning = false;
+const unsigned long timerDuration = 1000; // 500 milliseconds
+
 int maxSectionWidth = 0;
 int attackX = 0;
 int decayX = 0;
@@ -18,199 +25,110 @@ int AmppointsY[6];
 char filterDisplay[30];
 char lfoDisplay[30];
 
-int transpose = -12;
-int realoctave = -36;
 int keyboardMode = 0;
 int playMode = 0;
-int noteMsg;
 int readRes = 1023;
 int parameterGroup = 0;
-int lastPlayedNote = -1;  // Track the last note played
-int lastPlayedVoice = 0;  // Track the voice of the last note played
-int lastUsedVoice = 0; // Global variable to store the last used voice
 
 //Values below are just for initialising and will be changed when synth is initialised to current panel controls & EEPROM settings
 byte midiChannel = 1;//(EEPROM)
 byte midiOutCh = 1;//(EEPROM)
-byte LEDintensity = 10;//(EEPROM)
-byte oldLEDintensity;
-int SLIDERintensity = 1;//(EEPROM)
-int oldSLIDERintensity;
 int i = 0;
-
-//Delayed LFO
-int numberOfNotes = 0;
-int oldnumberOfNotes = 0;
-unsigned long previousMillis = 0;
-unsigned long interval = 1; //10 seconds
-long delaytime  = 0;
 
 int resolutionFrig = 3;
 boolean recallPatchFlag = false;
-boolean learning = false;
-boolean noteArrived = false;
 int setCursorPos = 0;
 
-int MIDIThru = midi::Thru::Off;//(EEPROM)
 String patchName = INITPATCHNAME;
-boolean encCW = true;//This is to set the encoder to increment when turned CW - Settings Option
-boolean updateParams = false;  //(EEPROM)
-boolean sendNotes = false;  //(EEPROM)
 
 int NotePriority = 0;
 int FilterLoop = 0;
 int AmpLoop = 0;
 int ClockSource = 0;
-
-// polykit parameters in order of mux
-
-int osc1Tune = 0;
-int osc1Tunestr = 0; // for display
-int initialosc1Tune = 448;
-int oscfmDepth = 0;
-int oscfmDepthstr = 0;
-int osc2Tune = 0;
-int osc2Tunestr = 0;
-int initialosc2Tune = 384;
-int osc1WaveMod = 0;
-int osc1WaveModstr = 0;
-int osc2WaveMod = 0;
-int osc2WaveModstr = 0;
-int osc1WaveSelect = 0;
-int osc1WaveSelectstr = 0;
-int oct1 = 0;
-int oct2 = 0;
-int osc2WaveSelect = 0;
-int osc2WaveSelectstr = 0;
-int osc1WaveA = 0;
-int osc1WaveB = 0;
-int osc1WaveC = 0;
-int osc2WaveA = 0;
-int osc2WaveB = 0;
-int osc2WaveC = 0;
-int glideTime = 0;
-int glideTimestr = 0;
-int glideTimedisplay = 0;
-int glideSW = 0;
-int noiseLevel = 0;
-int noiseLevelstr = 0;
-int noiseLeveldisplay = 0.00;
-int osc1PW = 0;
-int osc1PWM = 0;
-int osc2PW = 0;
-int osc2PWM = 0;
-int osc1sawLevel = 0;
-int osc2sawLevel = 0;
-int osc1pulseLevel = 0;
-int osc2pulseLevel = 0;
-int osc1subLevel = 0;
-int osc2triLevel = 0;
-int osc2interval = 0;
-int osc2detune = 0;
-int osc1fmWaveMod = 0;
-int osc1fmWaveModstr = 0; // for display
-int osc2fmWaveMod = 0;
-int osc2fmWaveModstr = 0; // for display
-
-int filterCutoff = 0;
-int oldfilterCutoff = 0;
-int filterCutoffstr = 0; // for display
-int filterLFO = 0;
-int filterLFOstr = 0; // for display
-int filterRes = 0;
-int filterResstr = 0;
-int filterType = 0;
-int filterA = 0;
-int filterB = 0;
-int filterC = 0;
-int filterEGlevel = 0;
-int filterEGlevelstr = 0;
-int LFORate = 0;
-int LFODelayGo = 0;
-int lfoDelay = 0;
-String StratusLFOWaveform = "                ";
-String Oscillator1Waveform = "                ";
-String Oscillator2Waveform = "                ";
-int LFOWaveform = 0;
-int LFOWaveCV = 0;
-int filterAttack = 0;
-int filterAttackstr = 0;
-int filterDecay = 0;
-int filterDecaystr = 0;
-int filterSustain = 0;
-int filterSustainstr = 0;
-int filterRelease = 0;
-int filterReleasestr = 0;
-int ampAttack = 0;
-int oldampAttack = 0;
-int ampAttackstr = 0;
-int ampDecay = 0;
-int oldampDecay = 0;
-int ampDecaystr = 0;
-int ampSustain = 0;
-int oldampSustain = 0;
-int ampSustainstr = 0;
-int ampRelease = 0;
-int oldampRelease = 0;
-int ampReleasestr = 0;
-int AmpGatedSW = 0;
-int amDepth = 0;
-int amDepthstr = 0;
-int volumeControl = 0;
-int volumeControlstr = 0; // for display
-int keyTrack = 0;
-int keyTrackMult = 0.00;
-int keyTrackstr = 0;
-int effect1 = 0;
-int effect1str = 0;
-int effect2 = 0;
-int effect2str = 0;
-int effect3 = 0;
-int effect3str = 0;
-int mixa = 0;
-int mixastr = 0;
-int mixbstr = 0;
-int osc1Bank = 0;
-int osc1BankB = 0;
-int osc2Bank = 0;
-int osc2BankB = 0;
-int lfoAlt = 0;
-int lfoMult = 0;
-int LFOMultCV = 0;
-int filterPoleSW = 0;
-int filterEGinv = 0;
-int newbend = 0;
-int PitchBendLevel = 0;
-int PitchBendLevelstr = 0; // for display
-int modWheelDepth = 0;
-int modWheelLevel = 0;
-int filterLogLin = 0;
-int ampLogLin = 0;
-float afterTouch = 0;
-int AfterTouchDest = 0;
-int afterTouchDepth = 0;
-float masterTune = 511;
-
-int filterVelSW = 0;
-int ampVelSW = 0;
-int monoMultiSW = 0;
-
-int effectBankSW = 0;
-int currentbank = 0;
-int effectNumSW = 0;
-
-int filterenvLinLogSW = 0;
-int ampenvLinLogSW = 0;
+int chordHoldSW = 0;
 boolean upperSW = false;
 boolean lowerSW = true;
-int dumpCompleteSW = 0;
-int dumpStartedSW = 0;
+boolean syncSW = false;
+boolean filterenvLinLogSW = false;
+boolean ampenvLinLogSW = false;
+int lfoMult = 0;
+int effectBankSW = 0;
+int effectNumSW = 0;
+boolean pmDestDCO1SW = false;
+boolean pmDestFilterSW = false;
+boolean monoMultiSW = false;
 int pwLFOwaveformSW = 0;
-int PWRate = 0;
-int syncSW = 0;
-int chordHoldSW = 0;
-int pmDestFilterSW = 0;
-int pmDestDCO1SW = 0;
+boolean dumpCompleteSW = false;
 
 int returnvalue = 0;
 
+int upperData[70];
+int lowerData[70];
+int panelData[70];
+
+#define P_pwLFO 1
+#define P_fmDepth 2
+#define P_osc2PW 3
+#define P_osc2PWM 4
+#define P_osc1PW 5
+#define P_osc1PWM 6
+#define P_osc1Range 7 
+#define P_osc2Range 8 
+#define P_osc2Interval 9
+#define P_glideTime 10 
+#define P_osc2Detune 11
+#define P_noiseLevel 12
+#define P_osc2SawLevel 13
+#define P_osc1SawLevel 14
+#define P_osc2PulseLevel 15
+#define P_osc1PulseLevel 16
+#define P_filterCutoff 17
+#define P_filterLFO 18
+#define P_filterRes 19
+#define P_filterType 20
+#define P_modWheelDepth 21
+#define P_effectsMix 22
+#define P_LFODelayGo 23
+#define P_filterEGlevel 24
+#define P_LFORate 25
+#define P_LFOWaveform 26
+#define P_filterAttack 27
+#define P_filterDecay 28
+#define P_filterSustain 29
+#define P_filterRelease 30
+#define P_ampAttack 31
+#define P_ampDecay 32
+#define P_ampSustain 33
+#define P_ampRelease 34
+#define P_volumeControl 35
+#define P_glideSW 36
+#define P_keytrack 37
+#define P_filterPoleSW 38
+#define P_filterLoop 39
+#define P_filterEGinv 40
+#define P_filterVel 41
+#define P_vcaLoop 42
+#define P_vcaVel 43
+#define P_vcaGate 44
+#define P_lfoAlt 45
+#define P_pmDCO2 46
+#define P_pmFilterEnv 47
+#define P_monoMulti 48
+#define P_modWheelLevel 49
+#define P_PitchBendLevel 50
+#define P_amDepth 51
+#define P_sync 52
+#define P_effectPot1 53
+#define P_effectPot2 54
+#define P_effectPot3 55
+#define P_oldampAttack 56
+#define P_oldampDecay 57
+#define P_oldampSustain 58
+#define P_oldampRelease 59
+#define P_AfterTouchDest 60
+#define P_filterLogLin 61
+#define P_ampLogLin 62
+#define P_osc2TriangleLevel 63
+#define P_osc1SubLevel 64
+#define P_keyTrackSW 65
+#define P_LFODelay 66
