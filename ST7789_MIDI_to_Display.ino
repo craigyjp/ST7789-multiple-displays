@@ -1,3 +1,7 @@
+//
+// Version 1.2
+//
+#include <Arduino.h>
 #include <MIDI.h>
 #include "Constants.h"
 #include "MidiCC.h"
@@ -5,12 +9,13 @@
 #include "HWcontrols.h"
 #include <Adafruit_GFX.h>  // Core graphics library
 #include <ST7789_t3.h>     // Hardware-specific library
+#include <i2c_driver.h>
+#include <i2c_driver_wire.h>
 #include <SPI.h>
 #include <RoxMux.h>
 
 // For the breakout board, you can use any 2 or 3 pins.
 // These pins will also work for the 1.8" TFT shield.
-
 
 #define TFT_RST 28
 #define TFT_RST1 41
@@ -94,11 +99,19 @@ EXTMEM uint16_t buf[4 * 1024 * 1024] __attribute__((aligned(32)));
 #define BUFFER7_OFFSET (BUFFER6_OFFSET + BUFFER_SIZE)
 #define BUFFER8_OFFSET (BUFFER7_OFFSET + BUFFER_SIZE)
 
+void receiveEvent(int howMany);
+int led = 49;
+
 void setup() {
 
   Serial.begin(115200);
-  SPI.begin();
 
+  pinMode(led, OUTPUT);
+  Wire2.setClock(400000);  // Set I2C speed to 400 kHz    // Set SCL pin
+  Wire2.begin(slaveAddress);  // Join the I2C bus as a Slave
+  Wire2.onReceive(receiveEvent); // register event
+
+  SPI.begin();
   srp.begin(LED_DATA, LED_LATCH, LED_CLK, LED_PWM);
 
   /* reset the displays manually */
@@ -247,10 +260,6 @@ void setup() {
   setupDisplay();
 
   MIDI.begin();
-  Serial.begin(115200);
-  while (!Serial) {
-    // Wait for serial port to connect
-  }
   MIDI.setHandleControlChange(myConvertControlChange);
   MIDI.setHandleSystemExclusive(onSysExMessage);
   MIDI.turnThruOn(midi::Thru::Mode::Off);
@@ -294,6 +303,48 @@ void myConvertControlChange(byte channel, byte number, byte value) {
     myLEDupdate(channel, number, newvalue);
   }
 
+}
+
+void receiveEvent(int howMany) {
+  while (Wire2.available() >= 4) {  // Ensure we have at least 4 bytes (header, data high, data low, tail)
+    int header = Wire2.read();      // Read the header
+    int highByteData = Wire2.read();  // Read the high byte of the data
+    int lowByteData = Wire2.read();   // Read the low byte of the data
+    int tail = Wire2.read();        // Read the tail
+
+    int data = (highByteData << 8) | lowByteData;  // Combine high and low bytes
+
+    if (tail == 255) {  // Check if the tail is correct
+      Serial.print("Received valid packet: Header = ");
+      Serial.print(header);
+      Serial.print(", Data = ");
+      Serial.println(data);
+
+      // React based on the header
+      if (header == 1) {
+        // Process the first data stream
+        processFirstStream(data);
+      } else if (header == 2) {
+        // Process the second data stream
+        processSecondStream(data);
+      }
+      // Add more headers as needed
+    } else {
+      Serial.println("Received invalid packet (wrong tail). Discarding.");
+    }
+  }
+}
+
+void processFirstStream(int data) {
+  // Example processing for the first stream
+  Serial.print("Processing first stream data: ");
+  Serial.println(data);
+}
+
+void processSecondStream(int data) {
+  // Example processing for the second stream
+  Serial.print("Processing second stream data: ");
+  Serial.println(data);
 }
 
 void onSysExMessage(byte *data, unsigned length) {
@@ -1353,14 +1404,14 @@ void midiCCOut(int CCnumberTosend, int value) {
 
 void loop() {
 
-  // Prioritize MIDI processing
-  MIDI.read();
+  // // Prioritize MIDI processing
+  // MIDI.read();
 
-  // Check for any other tasks that need to be done
-  if (millis() - lastSysExByteTime < sysExTimeout) {
-    // Handle other tasks, such as screen updates, here
-    processSysExData();
-    srp.update();         // update all the LEDs in the buttons
-  }
+  // // Check for any other tasks that need to be done
+  // if (millis() - lastSysExByteTime < sysExTimeout) {
+  //   // Handle other tasks, such as screen updates, here
+  //   processSysExData();
+  //   srp.update();         // update all the LEDs in the buttons
+  // }
 
 }

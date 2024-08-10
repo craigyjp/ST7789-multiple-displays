@@ -8,6 +8,8 @@ unsigned long timerStart = 0;
 bool timerRunning = false;
 const unsigned long timerDuration = 500; // 500 milliseconds
 
+const int slaveAddress = 8;  // I2C address of the Slave
+
 int maxSectionWidth = 0;
 int attackX = 0;
 int decayX = 0;
