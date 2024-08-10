@@ -247,16 +247,18 @@ void setup() {
   setupDisplay();
 
   MIDI.begin();
+  Serial.begin(115200);
+  while (!Serial) {
+    // Wait for serial port to connect
+  }
   MIDI.setHandleControlChange(myConvertControlChange);
   MIDI.setHandleSystemExclusive(onSysExMessage);
-  MIDI.setHandleNoteOn(DinHandleNoteOn);
-  MIDI.setHandleNoteOff(DinHandleNoteOff);
   MIDI.turnThruOn(midi::Thru::Mode::Off);
   Serial.println("MIDI In DIN Listening");
 
-  usbMIDI.setHandleControlChange(myConvertControlChange);
-  usbMIDI.setHandleSystemExclusive(onSysExMessage);
-  Serial.println("MIDI In USB Listening");
+  // usbMIDI.setHandleControlChange(myConvertControlChange);
+  // usbMIDI.setHandleSystemExclusive(onSysExMessage);
+  // Serial.println("MIDI In USB Listening");
 
   renderCurrentPatchPage(0);
   tft0.updateScreen();
@@ -278,23 +280,6 @@ void setup() {
   tft8.updateScreen();
 }
 
-void DinHandleNoteOn(byte channel, byte note, byte velocity) {
-  if (timerRunning && millis() - timerStart < timerDuration) {
-    // Reset the timer
-    timerStart = millis();
-    Serial.println("Note On received, timer reset.");
-  }
-}
-
-void DinHandleNoteOff(byte channel, byte note, byte velocity) {
-  if (note == 0) {
-    // Start the 500ms timer
-    timerStart = millis();
-    timerRunning = true;
-    Serial.println("Note Off received, timer started.");
-  }
-}
-
 void myConvertControlChange(byte channel, byte number, byte value) {
 
   if (channel == 1) {
@@ -312,6 +297,9 @@ void myConvertControlChange(byte channel, byte number, byte value) {
 }
 
 void onSysExMessage(byte *data, unsigned length) {
+
+  lastSysExByteTime = millis();
+
   Serial.print("Received SysEx message with length: ");
   Serial.println(length);
 
@@ -325,6 +313,28 @@ void onSysExMessage(byte *data, unsigned length) {
   } else {
     Serial.println("Received SysEx message of unexpected length");
   }
+
+}
+
+void processSysExData() {
+    renderCurrentPatchPage(0);
+    tft0.updateScreen();
+    renderCurrentPatchPage(1);
+    tft1.updateScreen();
+    renderCurrentPatchPage(2);
+    tft2.updateScreen();
+    renderCurrentPatchPage(3);
+    tft3.updateScreen();
+    renderCurrentPatchPage(4);
+    tft4.updateScreen();
+    renderCurrentPatchPage(5);
+    tft5.updateScreen();
+    renderCurrentPatchPage(6);
+    tft6.updateScreen();
+    renderCurrentPatchPage(7);
+    tft7.updateScreen();
+    renderCurrentPatchPage(8);
+    tft8.updateScreen();
 }
 
 // void updateglideSW() {
@@ -1343,34 +1353,14 @@ void midiCCOut(int CCnumberTosend, int value) {
 
 void loop() {
 
-  MIDI.read(MIDI_CHANNEL_OMNI);
+  // Prioritize MIDI processing
+  MIDI.read();
 
-  srp.update();         // update all the LEDs in the buttons
-
-  // Check if the timer has expired
-  if (timerRunning && millis() - timerStart >= timerDuration) {
-    // Timer expired, do something
-
-    renderCurrentPatchPage(0);
-    tft0.updateScreen();
-    renderCurrentPatchPage(1);
-    tft1.updateScreen();
-    renderCurrentPatchPage(2);
-    tft2.updateScreen();
-    renderCurrentPatchPage(3);
-    tft3.updateScreen();
-    renderCurrentPatchPage(4);
-    tft4.updateScreen();
-    renderCurrentPatchPage(5);
-    tft5.updateScreen();
-    renderCurrentPatchPage(6);
-    tft6.updateScreen();
-    renderCurrentPatchPage(7);
-    tft7.updateScreen();
-    renderCurrentPatchPage(8);
-    tft8.updateScreen();
-
-    Serial.println("Timer expired.");
-    timerRunning = false;
+  // Check for any other tasks that need to be done
+  if (millis() - lastSysExByteTime < sysExTimeout) {
+    // Handle other tasks, such as screen updates, here
+    processSysExData();
+    srp.update();         // update all the LEDs in the buttons
   }
+
 }

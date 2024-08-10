@@ -1,9 +1,12 @@
 const int sysexDataLength = 72;
 byte receivedSysExData[sysexDataLength];
+bool isSysExProcessing = false;  // Flag to indicate SysEx processing state
+unsigned long lastSysExByteTime = 0;
+const unsigned long sysExTimeout = 100; // Timeout for SysEx processing (in milliseconds)
 
 unsigned long timerStart = 0;
 bool timerRunning = false;
-const unsigned long timerDuration = 1000; // 500 milliseconds
+const unsigned long timerDuration = 500; // 500 milliseconds
 
 int maxSectionWidth = 0;
 int attackX = 0;
