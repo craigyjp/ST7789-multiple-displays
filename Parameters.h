@@ -34,22 +34,14 @@ boolean recallPatchFlag = false;
 int setCursorPos = 0;
 
 String patchName = INITPATCHNAME;
-
+int lfoMult = 0;
 int NotePriority = 0;
-int FilterLoop = 0;
-int AmpLoop = 0;
 int ClockSource = 0;
 int chordHoldSW = 0;
 int upperSW = 0;
 int lowerSW = 1;
-boolean filterenvLinLogSW = false;
-boolean ampenvLinLogSW = false;
-int lfoMult = 0;
 boolean pmDestDCO1SW = false;
 boolean pmDestFilterSW = false;
-boolean monoMultiSW = false;
-int pwLFOwaveformSW = 0;
-boolean dumpCompleteSW = false;
 
 int returnvalue = 0;
 

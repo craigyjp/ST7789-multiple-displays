@@ -97,8 +97,8 @@ int led = 54;
 void setup() {
 
   // pinMode(led, OUTPUT);
-  Wire2.begin(8);  // join i2c bus with address #8
-  //Wire2.setClock(400000);         // Set I2C speed to 400 kHz
+  Wire2.begin(8);                 // join i2c bus with address #8
+  Wire2.setClock(400000);         // Set I2C speed to 400 kHz
   Wire2.onReceive(receiveEvent);  // register event
 
   Serial.begin(115200);
@@ -762,15 +762,47 @@ void myLEDupdate(byte channel, byte control, int value) {
         // Handle the case where the pointer is NULL (if needed)
       }
 
-      tft7.fillRoundRect(10, 10, 200, 30, 5, ST7735_YELLOW);
-      tft7.setCursor(20, 18);
+      tft7.fillRoundRect(10, 10, 300, 30, 5, ST7735_YELLOW);
+      tft7.setCursor(50, 18);
       tft7.print(buf1);
-      tft7.setCursor(128, 18);
+      tft7.setCursor(180, 18);
       tft7.print(buf2);
 
-      tft7.fillRoundRect(240, 10, 70, 30, 5, ST7735_YELLOW);  // Green box for off
-      tft7.setCursor(266, 18);
+
+      tft7.fillRoundRect(180, 50, 130, 30, 5, ST7735_YELLOW);  // Green box for off
+      tft7.setCursor(200, 58);
+      tft7.print("Bank:");
+      tft7.setCursor(280, 58);
       tft7.print(panelData[P_effectBank] + 1);
+
+      tft7.fillRoundRect(180, 90, 130, 30, 5, ST7735_YELLOW);  // Green box for off
+      tft7.setCursor(200, 98);
+      tft7.print("Prog:");
+      tft7.setCursor(280, 98);
+      tft7.print(panelData[P_effectNum] + 1);
+
+      tft7.setFont(&FreeSans9pt7b);
+
+      tft7.fillRoundRect(180, 130, 130, 30, 5, ST7735_CYAN);  // Green box for off
+      // tft7.setCursor(200, 138);
+      // tft7.print("P1");
+      tft7.setCursor(190, 138);
+      tft7.print(buf3);
+
+      tft7.fillRoundRect(180, 170, 130, 30, 5, ST7735_CYAN);  // Green box for off
+      // tft7.setCursor(200, 178);
+      // tft7.print("P2");
+      tft7.setCursor(190, 178);
+      tft7.print(buf4);
+
+      tft7.fillRoundRect(180, 210, 130, 30, 5, ST7735_CYAN);  // Green box for off
+      // tft7.setCursor(200, 218);
+      // tft7.print("P3");
+      tft7.setCursor(190, 218);
+      tft7.print(buf5);
+
+      tft7.setFont(&FreeSans12pt7b);
+
       tft7.updateScreen();
       break;
 
@@ -888,16 +920,48 @@ void myLEDupdate(byte channel, byte control, int value) {
         // Handle the case where the pointer is NULL (if needed)
       }
 
-      tft7.fillRoundRect(10, 10, 200, 30, 5, ST7735_YELLOW);
-      tft7.setCursor(20, 18);
+      tft7.fillRoundRect(10, 10, 300, 30, 5, ST7735_YELLOW);
+      tft7.setCursor(50, 18);
       tft7.print(buf1);
-      tft7.setCursor(128, 18);
+      tft7.setCursor(180, 18);
       tft7.print(buf2);
 
-      tft7.fillRoundRect(240, 10, 70, 30, 5, ST7735_YELLOW);  // Green box for off
-      tft7.setCursor(266, 18);
+      tft7.fillRoundRect(180, 50, 130, 30, 5, ST7735_YELLOW);  // Green box for off
+      tft7.setCursor(200, 58);
+      tft7.print("Bank:");
+      tft7.setCursor(280, 58);
       tft7.print(panelData[P_effectBank] + 1);
+
+      tft7.fillRoundRect(180, 90, 130, 30, 5, ST7735_YELLOW);  // Green box for off
+      tft7.setCursor(200, 98);
+      tft7.print("Prog:");
+      tft7.setCursor(280, 98);
+      tft7.print(panelData[P_effectNum] + 1);
+
+      tft7.setFont(&FreeSans9pt7b);
+
+      tft7.fillRoundRect(180, 130, 130, 30, 5, ST7735_CYAN);  // Green box for off
+      // tft7.setCursor(200, 138);
+      // tft7.print("P1");
+      tft7.setCursor(190, 138);
+      tft7.print(buf3);
+
+      tft7.fillRoundRect(180, 170, 130, 30, 5, ST7735_CYAN);  // Green box for off
+      // tft7.setCursor(200, 178);
+      // tft7.print("P2");
+      tft7.setCursor(190, 178);
+      tft7.print(buf4);
+
+      tft7.fillRoundRect(180, 210, 130, 30, 5, ST7735_CYAN);  // Green box for off
+      // tft7.setCursor(200, 218);
+      // tft7.print("P3");
+      tft7.setCursor(190, 218);
+      tft7.print(buf5);
+
+      tft7.setFont(&FreeSans12pt7b);
+
       tft7.updateScreen();
+
       break;
 
     case CCkeyboardMode:
@@ -944,6 +1008,20 @@ void myLEDupdate(byte channel, byte control, int value) {
           break;
       }
       tft0.updateScreen();
+      break;
+
+    case CCmonoMulti:
+      panelData[P_monoMulti] = value;
+      if (panelData[P_monoMulti]) {
+        srp.set(LFO_MULTI_MONO_LED, HIGH);
+        tft6.fillRoundRect(180, 90, 130, 30, 5, ST7735_RED);
+      } else {
+        srp.set(LFO_MULTI_MONO_LED, LOW);
+        tft6.fillRoundRect(180, 90, 130, 30, 5, ST7735_GREEN);
+      }
+      tft6.setCursor(195, 98);
+      tft6.print(panelData[P_monoMulti] == 0 ? "Trig Off" : "Trig On");
+      tft6.updateScreen();
       break;
 
     case CCfilterEGinv:
@@ -1009,6 +1087,21 @@ void myLEDupdate(byte channel, byte control, int value) {
       }
       tft5.setCursor(210, 98);
       tft5.print(panelData[P_ampLogLin] == 0 ? "Env Lin" : "Env Log");
+      tft5.updateScreen();
+      break;
+
+    case CCvcaGate:
+      panelData[P_vcaGate] = value;
+
+      if (panelData[P_vcaGate] == 0) {
+        srp.set(AMP_GATED_LED, LOW);
+        tft5.fillRoundRect(10, 10, 130, 30, 5, ST7735_GREEN);  // Green box for off
+      } else {
+        srp.set(AMP_GATED_LED, HIGH);
+        tft5.fillRoundRect(10, 10, 130, 30, 5, ST7735_RED);  // Red box for on
+      }
+      tft5.setCursor(30, 18);
+      tft5.print(panelData[P_vcaGate] == 0 ? "Gate Off" : "Gate On");
       tft5.updateScreen();
       break;
 
@@ -1537,6 +1630,24 @@ void updateLEDs() {
       break;
     case 1:
       srp.set(LFO_ALT_LED, HIGH);
+      break;
+  }
+
+  switch (panelData[P_monoMulti]) {
+    case 0:
+      srp.set(LFO_MULTI_MONO_LED, LOW);
+      break;
+    case 1:
+      srp.set(LFO_MULTI_MONO_LED, HIGH);
+      break;
+  }
+
+  switch (panelData[P_vcaGate]) {
+    case 0:
+      srp.set(AMP_GATED_LED, LOW);
+      break;
+    case 1:
+      srp.set(AMP_GATED_LED, HIGH);
       break;
   }
 }

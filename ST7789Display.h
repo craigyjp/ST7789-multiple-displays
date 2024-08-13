@@ -632,7 +632,7 @@ void renderCurrentPatchPage(int parameter) {
       } else {
         tft5.fillRoundRect(10, 10, 130, 30, 5, ST7735_RED);  // Red box for on
       }
-      tft5.setCursor(195, 18);
+      tft5.setCursor(30, 18);
       tft5.print(panelData[P_vcaGate] == 0 ? "Gate Off" : "Gate On");
 
       if (!panelData[P_ampLogLin]) {
@@ -729,9 +729,16 @@ void renderCurrentPatchPage(int parameter) {
       } else {
         tft6.fillRoundRect(180, 50, 130, 30, 5, ST7735_GREEN);
       }
-      tft6.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
       tft6.setCursor(195, 58);
       tft6.print(panelData[P_lfoAlt] == 0 ? "Alt Off" : "Alt On");
+
+      if (panelData[P_monoMulti]) {
+        tft6.fillRoundRect(180, 90, 130, 30, 5, ST7735_RED);
+      } else {
+        tft6.fillRoundRect(180, 90, 130, 30, 5, ST7735_GREEN);
+      }
+      tft6.setCursor(195, 98);
+      tft6.print(panelData[P_monoMulti] == 0 ? "Trig Off" : "Trig On");
 
       // Drawing the bars
       drawBar6(6, panelData[P_LFORate], NUM_STEPS, STEP_HEIGHT);
@@ -882,15 +889,45 @@ void renderCurrentPatchPage(int parameter) {
         // Handle the case where the pointer is NULL (if needed)
       }
 
-      tft7.fillRoundRect(10, 10, 200, 30, 5, ST7735_YELLOW); 
-      tft7.setCursor(20, 18);
+      tft7.fillRoundRect(10, 10, 300, 30, 5, ST7735_YELLOW); 
+      tft7.setCursor(50, 18);
       tft7.print(buf1);
-      tft7.setCursor(128, 18);
+      tft7.setCursor(180, 18);
       tft7.print(buf2);
 
-      tft7.fillRoundRect(240, 10, 70, 30, 5, ST7735_YELLOW);  // Green box for off
-      tft7.setCursor(266, 18);
+      tft7.fillRoundRect(180, 50, 130, 30, 5, ST7735_YELLOW);  // Green box for off
+      tft7.setCursor(200, 58);
+      tft7.print("Bank:");
+      tft7.setCursor(280, 58);
       tft7.print(panelData[P_effectBank] + 1);
+
+      tft7.fillRoundRect(180, 90, 130, 30, 5, ST7735_YELLOW);  // Green box for off
+      tft7.setCursor(200, 98);
+      tft7.print("Prog:");
+      tft7.setCursor(280, 98);
+      tft7.print(panelData[P_effectNum] + 1);
+
+      tft7.setFont(&FreeSans9pt7b);
+
+      tft7.fillRoundRect(180, 130, 130, 30, 5, ST7735_CYAN);  // Green box for off
+      // tft7.setCursor(200, 138);
+      // tft7.print("P1");
+      tft7.setCursor(190, 138);
+      tft7.print(buf3);
+
+      tft7.fillRoundRect(180, 170, 130, 30, 5, ST7735_CYAN);  // Green box for off
+      // tft7.setCursor(200, 178);
+      // tft7.print("P2");
+      tft7.setCursor(190, 178);
+      tft7.print(buf4);
+
+      tft7.fillRoundRect(180, 210, 130, 30, 5, ST7735_CYAN);  // Green box for off
+      // tft7.setCursor(200, 218);
+      // tft7.print("P3");
+      tft7.setCursor(190, 218);
+      tft7.print(buf5);
+
+      tft7.setFont(&FreeSans12pt7b);
 
       break;
 
