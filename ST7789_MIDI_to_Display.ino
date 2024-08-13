@@ -2,6 +2,8 @@
 // Version 1.2
 //
 #include <Arduino.h>
+#include <i2c_driver.h>
+#include <i2c_driver_wire.h>
 #include <MIDI.h>
 #include "Constants.h"
 #include "MidiCC.h"
@@ -9,10 +11,8 @@
 #include "HWcontrols.h"
 #include <Adafruit_GFX.h>  // Core graphics library
 #include <ST7789_t3.h>     // Hardware-specific library
-#include <i2c_driver.h>
-#include <i2c_driver_wire.h>
 #include <SPI.h>
-#include <RoxMux.h>
+#include <ShiftRegister74HC595.h>
 
 // For the breakout board, you can use any 2 or 3 pins.
 // These pins will also work for the 1.8" TFT shield.
@@ -70,14 +70,7 @@ unsigned int state = PARAMETER;
 //MIDI 5 Pin DIN
 MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, MIDI);
 
-#define SRP_TOTAL 3
-Rox74HC595<SRP_TOTAL> srp;
-
-// pins for 74HC595
-#define LED_DATA 35   // pin 14 on 74HC595 (DATA)
-#define LED_CLK 34    // pin 11 on 74HC595 (CLK)
-#define LED_LATCH 33  // pin 12 on 74HC595 (LATCH)
-#define LED_PWM -1    // pin 13 on 74HC595
+ShiftRegister74HC595<3> srp(35, 34, 33);
 
 #include "ST7789Display.h"
 
@@ -99,20 +92,20 @@ EXTMEM uint16_t buf[4 * 1024 * 1024] __attribute__((aligned(32)));
 #define BUFFER7_OFFSET (BUFFER6_OFFSET + BUFFER_SIZE)
 #define BUFFER8_OFFSET (BUFFER7_OFFSET + BUFFER_SIZE)
 
-void receiveEvent(int howMany);
-int led = 49;
+int led = 54;
 
 void setup() {
 
+  // pinMode(led, OUTPUT);
+  Wire2.begin(8);  // join i2c bus with address #8
+  //Wire2.setClock(400000);         // Set I2C speed to 400 kHz
+  Wire2.onReceive(receiveEvent);  // register event
+
   Serial.begin(115200);
 
-  pinMode(led, OUTPUT);
-  Wire2.setClock(400000);  // Set I2C speed to 400 kHz    // Set SCL pin
-  Wire2.begin(slaveAddress);  // Join the I2C bus as a Slave
-  Wire2.onReceive(receiveEvent); // register event
-
   SPI.begin();
-  srp.begin(LED_DATA, LED_LATCH, LED_CLK, LED_PWM);
+
+  //srp.begin(LED_DATA, LED_LATCH, LED_CLK, LED_PWM);
 
   /* reset the displays manually */
   pinMode(TFT_RST, OUTPUT);
@@ -269,6 +262,14 @@ void setup() {
   // usbMIDI.setHandleSystemExclusive(onSysExMessage);
   // Serial.println("MIDI In USB Listening");
 
+  lowerSW = 1;
+  srp.set(UPPER_LED, LOW);
+  srp.set(LOWER_LED, HIGH);
+  playMode = 0;
+  srp.set(KEYBOARD_RED_LED, LOW);
+  srp.set(KEYBOARD_GREEN_LED, LOW);
+
+
   renderCurrentPatchPage(0);
   tft0.updateScreen();
   renderCurrentPatchPage(1);
@@ -289,599 +290,766 @@ void setup() {
   tft8.updateScreen();
 }
 
+void receiveEvent(int howMany) {
+  static int i2cByteNumber = 0;  // Keep track of where to store incoming data
+
+  while (Wire2.available() >= 2 && i2cByteNumber < 70) {  // Ensure at least two bytes are available and we have space
+    uint8_t highByte = Wire2.read();                      // Read the high byte
+    uint8_t lowByte = Wire2.read();                       // Read the low byte
+
+    panelData[i2cByteNumber] = (highByte << 8) | lowByte;  // Reassemble 16-bit integer
+    i2cByteNumber++;
+  }
+
+  // Check if all expected data has been received
+  if (i2cByteNumber >= 70) {
+
+    if (panelData[P_sysex]) {
+      memcpy(upperData, panelData, sizeof(panelData));
+    } else {
+      memcpy(lowerData, panelData, sizeof(panelData));
+    }
+
+    processSysExData();
+    i2cByteNumber = 0;  // Reset index for next transmission
+  }
+}
+
+
+
 void myConvertControlChange(byte channel, byte number, byte value) {
 
   if (channel == 1) {
-    //Serial.println("Received on channel 1 at the display");
+    Serial.println("Received on channel 1 at the display");
     int newvalue = (value << 3);
     myControlChange(channel, number, newvalue);
   }
 
   if (channel == 2) {
-    //Serial.println("Received on channel 2 at the display");
+    Serial.println("Received on channel 2 at the display");
     int newvalue = value;
     myLEDupdate(channel, number, newvalue);
   }
-
 }
-
-void receiveEvent(int howMany) {
-  while (Wire2.available() >= 4) {  // Ensure we have at least 4 bytes (header, data high, data low, tail)
-    int header = Wire2.read();      // Read the header
-    int highByteData = Wire2.read();  // Read the high byte of the data
-    int lowByteData = Wire2.read();   // Read the low byte of the data
-    int tail = Wire2.read();        // Read the tail
-
-    int data = (highByteData << 8) | lowByteData;  // Combine high and low bytes
-
-    if (tail == 255) {  // Check if the tail is correct
-      Serial.print("Received valid packet: Header = ");
-      Serial.print(header);
-      Serial.print(", Data = ");
-      Serial.println(data);
-
-      // React based on the header
-      if (header == 1) {
-        // Process the first data stream
-        processFirstStream(data);
-      } else if (header == 2) {
-        // Process the second data stream
-        processSecondStream(data);
-      }
-      // Add more headers as needed
-    } else {
-      Serial.println("Received invalid packet (wrong tail). Discarding.");
-    }
-  }
-}
-
-void processFirstStream(int data) {
-  // Example processing for the first stream
-  Serial.print("Processing first stream data: ");
-  Serial.println(data);
-}
-
-void processSecondStream(int data) {
-  // Example processing for the second stream
-  Serial.print("Processing second stream data: ");
-  Serial.println(data);
-}
-
-void onSysExMessage(byte *data, unsigned length) {
-
-  lastSysExByteTime = millis();
-
-  Serial.print("Received SysEx message with length: ");
-  Serial.println(length);
-
-  // Check if the received data length matches our expected length
-  if (length == sysexDataLength + 3) {  // 3 bytes for Manufacturer ID
-
-    for (int i = 0; i < (sysexDataLength - 1); i++) {
-      panelData[i - 1] = map(data[i + 3], 0, 127, 0, 1023);  // Skip the Manufacturer ID bytes
-    }
-
-  } else {
-    Serial.println("Received SysEx message of unexpected length");
-  }
-
-}
-
-void processSysExData() {
-    renderCurrentPatchPage(0);
-    tft0.updateScreen();
-    renderCurrentPatchPage(1);
-    tft1.updateScreen();
-    renderCurrentPatchPage(2);
-    tft2.updateScreen();
-    renderCurrentPatchPage(3);
-    tft3.updateScreen();
-    renderCurrentPatchPage(4);
-    tft4.updateScreen();
-    renderCurrentPatchPage(5);
-    tft5.updateScreen();
-    renderCurrentPatchPage(6);
-    tft6.updateScreen();
-    renderCurrentPatchPage(7);
-    tft7.updateScreen();
-    renderCurrentPatchPage(8);
-    tft8.updateScreen();
-}
-
-// void updateglideSW() {
-//   parameterGroup = 0;
-//   if (panelData[P_glideSW]) {
-//     midiCCOut(CCglideSW, 127);
-//   } else if (!panelData[P_glideSW]) {
-//     midiCCOut(CCglideSW, 0);
-//   }
-// }
-
-// void updateupperSW() {
-//   parameterGroup = 0;
-//   if (upperSW) {
-//     midiCCOut(CCupperSW, 127);
-//   } else if (!upperSW) {
-//     midiCCOut(CCupperSW, 0);
-//   }
-// }
-
-// void updatelowerSW() {
-//   parameterGroup = 0;
-//   if (lowerSW) {
-//     midiCCOut(CClowerSW, 127);
-//   } else if (!lowerSW) {
-//     midiCCOut(CClowerSW, 0);
-//   }
-// }
-
-// void updatechordHoldSW() {
-//   parameterGroup = 0;
-//   if (chordHoldSW) {
-//     midiCCOut(CCchordHoldSW, 127);
-//   } else if (!panelData[P_glideSW]) {
-//     midiCCOut(CCchordHoldSW, 0);
-//   }
-// }
-
-// void updatelfoAlt() {
-//   if (panelData[P_lfoAlt]) {
-//     midiCCOut(CClfoAlt, 127);
-//   } else if (!panelData[P_lfoAlt]) {
-//     midiCCOut(CClfoAlt, 0);
-//   }
-// }
-
-// void updatefilterPoleSwitch() {
-//   if (panelData[P_filterPoleSW]) {
-//     midiCCOut(CCfilterPoleSW, 127);
-//   } else if (!panelData[P_filterPoleSW]) {
-//     midiCCOut(CCfilterPoleSW, 0);
-//   }
-// }
-
-// void updatefilterEGinv() {
-//   if (panelData[P_filterEGinv]) {
-//     midiCCOut(CCfilterEGinv, 0);
-//   } else if (!panelData[P_filterEGinv]) {
-//     midiCCOut(CCfilterEGinv, 127);
-//   }
-// }
-
-// void updatesyncSwitch() {
-//   if (syncSW) {
-//     midiCCOut(CCsyncSW, 127);
-//   } else if (!syncSW) {
-//     midiCCOut(CCsyncSW, 0);
-//   }
-// }
-
-// void updateFilterType() {
-//   switch (panelData[P_filterType]) {
-//     case 0:
-//       midiCCOut(CCfilterType, 0);
-//       break;
-
-//     case 1:
-//       midiCCOut(CCfilterType, 8);
-//       break;
-
-//     case 2:
-//       midiCCOut(CCfilterType, 16);
-//       break;
-
-//     case 3:
-//       midiCCOut(CCfilterType, 24);
-//       break;
-
-//     case 4:
-//       midiCCOut(CCfilterType, 32);
-//       break;
-
-//     case 5:
-//       midiCCOut(CCfilterType, 40);
-//       break;
-
-//     case 6:
-//       midiCCOut(CCfilterType, 48);
-//       break;
-
-//     case 7:
-//       midiCCOut(CCfilterType, 56);
-//       break;
-//   }
-// }
-
-// void updateStratusLFOWaveform() {
-//   switch (panelData[P_LFOWaveform]) {
-//     case 0:
-//       midiCCOut(CCLFOWaveform, 0);
-//       break;
-
-//     case 1:
-//       midiCCOut(CCLFOWaveform, 8);
-//       break;
-
-//     case 2:
-//       midiCCOut(CCLFOWaveform, 16);
-//       break;
-
-//     case 3:
-//       midiCCOut(CCLFOWaveform, 24);
-//       break;
-
-//     case 4:
-//       midiCCOut(CCLFOWaveform, 32);
-//       break;
-
-//     case 5:
-//       midiCCOut(CCLFOWaveform, 40);
-//       break;
-
-//     case 6:
-//       midiCCOut(CCLFOWaveform, 48);
-//       break;
-
-//     case 7:
-//       midiCCOut(CCLFOWaveform, 56);
-//       break;
-//   }
-// }
-
-// void updatekeyboardMode() {
-//   parameterGroup = 5;
-//   switch (keyboardMode) {
-//     case 0:
-//       // srp.writePin(POLY_MODE_RED_LED, LOW);
-//       // srp.writePin(POLY_MODE_GREEN_LED, LOW);
-//       //allNotesOff();
-//       break;
-
-//     case 1:
-//       // srp.writePin(POLY_MODE_RED_LED, HIGH);
-//       // srp.writePin(POLY_MODE_GREEN_LED, LOW);
-//       //allNotesOff();
-//       break;
-
-//     case 2:
-//       // srp.writePin(POLY_MODE_RED_LED, LOW);
-//       // srp.writePin(POLY_MODE_GREEN_LED, HIGH);
-//       //allNotesOff();
-//       break;
-
-//     case 3:
-//       // srp.writePin(POLY_MODE_RED_LED, HIGH);
-//       // srp.writePin(POLY_MODE_GREEN_LED, HIGH);
-//       //allNotesOff();
-//       break;
-//   }
-// }
 
 void myLEDupdate(byte channel, byte control, int value) {
   switch (control) {
 
     case CCLFOWaveform:
       panelData[P_LFOWaveform] = value;
-      if (dumpCompleteSW == 0) {
-        switch (panelData[P_lfoAlt]) {
-          case 1:
-            str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(lfo02[panelData[P_LFOWaveform]])));
-            break;
-          case 0:
-            str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(lfo01[panelData[P_LFOWaveform]])));
-            break;
-        }
-        // Check if the pointer is valid
-        if (str_ptr != nullptr) {
-          // Copy the string from program memory to RAM
-          strcpy_P(lfoDisplay, str_ptr);
-        }
-        tft6.setFont(&FreeSans12pt7b);
-
-        // Set range label and value inside a box along the top
-        tft6.fillRoundRect(10, 10, 200, 30, 5, ST7735_YELLOW);  // Background box for range
-        tft6.setCursor(40, 18);
-        tft6.setTextColor(ST7735_BLACK);
-        tft6.print(lfoDisplay);
-        tft6.updateScreen();
+      switch (panelData[P_lfoAlt]) {
+        case 1:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(lfo02[panelData[P_LFOWaveform]])));
+          break;
+        case 0:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(lfo01[panelData[P_LFOWaveform]])));
+          break;
       }
+      // Check if the pointer is valid
+      if (str_ptr != nullptr) {
+        // Copy the string from program memory to RAM
+        strcpy_P(lfoDisplay, str_ptr);
+      }
+      tft6.setFont(&FreeSans12pt7b);
+
+      // Set range label and value inside a box along the top
+      tft6.fillRoundRect(10, 10, 200, 30, 5, ST7735_YELLOW);  // Background box for range
+      tft6.setCursor(40, 18);
+      tft6.setTextColor(ST7735_BLACK);
+      tft6.print(lfoDisplay);
+      tft6.updateScreen();
       break;
 
     case CCupperSW:
-      if (value == 127) {
-        srp.writePin(UPPER_LED, HIGH);
-        srp.writePin(LOWER_LED, LOW);
-        upperSW = 1;
+      upperSW = value;
+      if (upperSW) {
+        srp.set(UPPER_LED, HIGH);
+        srp.set(LOWER_LED, LOW);
         lowerSW = 0;
-      } else if (value == 0) {
-        srp.writePin(UPPER_LED, LOW);
-        srp.writePin(UPPER_LED, HIGH);
-        upperSW = 0;
-        lowerSW = 1;
       }
-      if (dumpCompleteSW == 0) {
-        // upper/lower indicator box along the top
-        tft0.setFont(&FreeSans12pt7b);
-        if (upperSW == 0) {
-          tft0.fillRoundRect(180, 50, 130, 30, 5, ST7735_GREEN);  // Green box for off
-        } else {
-          tft0.fillRoundRect(180, 50, 130, 30, 5, ST7735_RED);  // Green box for off
-        }
-        tft0.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
-        tft0.setCursor(195, 58);
-        tft0.print(upperSW == 0 ? "     " : "Upper");
+      // upper/lower indicator box along the top
+      tft0.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
+      tft0.setFont(&FreeSans12pt7b);
+      if (upperSW == 0) {
+        tft0.fillRoundRect(180, 50, 130, 30, 5, ST7735_GREEN);  // Green box for off
+      } else {
+        tft0.fillRoundRect(180, 50, 130, 30, 5, ST7735_RED);  // Green box for off
+      }
+      tft0.setCursor(195, 58);
+      tft0.print(upperSW == 0 ? "     " : "Upper");
 
-        if (lowerSW == 0) {
-          tft0.fillRoundRect(180, 90, 130, 30, 5, ST7735_GREEN);  // Green box for off
-        } else {
-          tft0.fillRoundRect(180, 90, 130, 30, 5, ST7735_RED);  // Green box for off
-        }
-        tft0.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
-        tft0.setCursor(195, 98);
-        tft0.print(lowerSW == 0 ? "     " : "Lower");
-        tft0.updateScreen();
+      if (lowerSW == 0) {
+        tft0.fillRoundRect(180, 90, 130, 30, 5, ST7735_GREEN);  // Green box for off
+      } else {
+        tft0.fillRoundRect(180, 90, 130, 30, 5, ST7735_RED);  // Green box for off
       }
+      tft0.setCursor(195, 98);
+      tft0.print(lowerSW == 0 ? "     " : "Lower");
+      //tft0.updateScreen();
+      memcpy(panelData, upperData, 71);
+      processSysExData();
       break;
 
     case CClowerSW:
-      if (value == 127) {
-        srp.writePin(UPPER_LED, LOW);
-        srp.writePin(LOWER_LED, HIGH);
+      lowerSW = value;
+      if (lowerSW) {
+        srp.set(UPPER_LED, LOW);
+        srp.set(LOWER_LED, HIGH);
         upperSW = 0;
-        lowerSW = 1;
-      } else if (value == 0) {
-        srp.writePin(UPPER_LED, LOW);
-        srp.writePin(UPPER_LED, HIGH);
-        upperSW = 1;
-        lowerSW = 0;
       }
-      if (dumpCompleteSW == 0) {
-        // upper/lower indicator box along the top
-        tft0.setFont(&FreeSans12pt7b);
-        if (upperSW == 0) {
-          tft0.fillRoundRect(180, 50, 130, 30, 5, ST7735_GREEN);  // Green box for off
-        } else {
-          tft0.fillRoundRect(180, 50, 130, 30, 5, ST7735_RED);  // Green box for off
-        }
-        tft0.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
-        tft0.setCursor(195, 58);
-        tft0.print(upperSW == 0 ? "     " : "Upper");
+      // upper/lower indicator box along the top
+      tft0.setFont(&FreeSans12pt7b);
+      if (upperSW == 0) {
+        tft0.fillRoundRect(180, 50, 130, 30, 5, ST7735_GREEN);  // Green box for off
+      } else {
+        tft0.fillRoundRect(180, 50, 130, 30, 5, ST7735_RED);  // Green box for off
+      }
+      tft0.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
+      tft0.setCursor(195, 58);
+      tft0.print(upperSW == 0 ? "     " : "Upper");
 
-        if (lowerSW == 0) {
-          tft0.fillRoundRect(180, 90, 130, 30, 5, ST7735_GREEN);  // Green box for off
-        } else {
-          tft0.fillRoundRect(180, 90, 130, 30, 5, ST7735_RED);  // Green box for off
-        }
-        tft0.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
-        tft0.setCursor(195, 98);
-        tft0.print(lowerSW == 0 ? "     " : "Lower");
-        tft0.updateScreen();
+      if (lowerSW == 0) {
+        tft0.fillRoundRect(180, 90, 130, 30, 5, ST7735_GREEN);  // Green box for off
+      } else {
+        tft0.fillRoundRect(180, 90, 130, 30, 5, ST7735_RED);  // Green box for off
       }
+      tft0.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
+      tft0.setCursor(195, 98);
+      tft0.print(lowerSW == 0 ? "     " : "Lower");
+      memcpy(panelData, lowerData, 71);
+      processSysExData();
       break;
 
     case CCglideSW:
-      if (value == 127) {
-        srp.writePin(GLIDE_SW_LED, HIGH);
+      if (value == 1) {
+        srp.set(GLIDE_SW_LED, HIGH);
         panelData[P_glideSW] = 1;
       } else if (value == 0) {
-        srp.writePin(GLIDE_SW_LED, LOW);
+        srp.set(GLIDE_SW_LED, LOW);
         panelData[P_glideSW] = 0;
       }
-      if (dumpCompleteSW == 0) {
-        tft0.setFont(&FreeSans12pt7b);
-        if (panelData[P_glideSW] == 0) {
-          tft0.fillRoundRect(10, 10, 130, 30, 5, ST7735_GREEN);  // Green box for off
-        } else {
-          tft0.fillRoundRect(10, 10, 130, 30, 5, ST7735_RED);  // Red box for on
-        }
-        tft0.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
-        tft0.setCursor(30, 18);
-        tft0.print(panelData[P_glideSW] == 0 ? "Glide Off" : "Glide On");
-        tft0.updateScreen();
+      // if (upperSW) {
+      //   upperData[P_glideSW] = panelData[P_glideSW];
+      // } else {
+      //   lowerData[P_glideSW] = panelData[P_glideSW];
+      // }
+      tft0.setFont(&FreeSans12pt7b);
+      if (panelData[P_glideSW] == 0) {
+        tft0.fillRoundRect(10, 10, 130, 30, 5, ST7735_GREEN);  // Green box for off
+      } else {
+        tft0.fillRoundRect(10, 10, 130, 30, 5, ST7735_RED);  // Red box for on
       }
+      tft0.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
+      tft0.setCursor(30, 18);
+      tft0.print(panelData[P_glideSW] == 0 ? "Glide Off" : "Glide On");
+      tft0.updateScreen();
       break;
 
     case CCchordHoldSW:
       if (value == 127) {
-        srp.writePin(CHORD_HOLD_LED, HIGH);
+        srp.set(CHORD_HOLD_LED, HIGH);
         chordHoldSW = 1;
       } else if (value == 0) {
-        srp.writePin(CHORD_HOLD_LED, LOW);
+        srp.set(CHORD_HOLD_LED, LOW);
         chordHoldSW = 0;
       }
-      if (dumpCompleteSW == 0) {
-        tft0.setFont(&FreeSans12pt7b);
-        if (chordHoldSW == 0) {
-          tft0.fillRoundRect(180, 10, 130, 30, 5, ST7735_GREEN);  // Green box for off
-        } else {
-          tft0.fillRoundRect(180, 10, 130, 30, 5, ST7735_RED);  // Red box for on
-        }
-        tft0.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
-        tft0.setCursor(195, 18);
-        tft0.print(chordHoldSW == 0 ? "Hold Off" : "Hold On");
-        tft0.updateScreen();
+      tft0.setFont(&FreeSans12pt7b);
+      if (chordHoldSW == 0) {
+        tft0.fillRoundRect(180, 10, 130, 30, 5, ST7735_GREEN);  // Green box for off
+      } else {
+        tft0.fillRoundRect(180, 10, 130, 30, 5, ST7735_RED);  // Red box for on
       }
+      tft0.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
+      tft0.setCursor(195, 18);
+      tft0.print(chordHoldSW == 0 ? "Hold Off" : "Hold On");
+      tft0.updateScreen();
       break;
 
     case CCfilterPoleSW:
       if (value == 127) {
-        srp.writePin(FILTER_POLE_LED, HIGH);
+        srp.set(FILTER_POLE_LED, HIGH);
         panelData[P_filterPoleSW] = 1;
         tft3.fillRoundRect(240, 10, 70, 30, 5, ST7735_RED);
       } else if (value == 0) {
-        srp.writePin(FILTER_POLE_LED, LOW);
+        srp.set(FILTER_POLE_LED, LOW);
         panelData[P_filterPoleSW] = 0;
         tft3.fillRoundRect(240, 10, 70, 30, 5, ST7735_GREEN);  // Green box for off
       }
-      if (dumpCompleteSW == 0) {
-        tft3.setFont(&FreeSans12pt7b);
-
-        switch (panelData[P_filterPoleSW]) {
-          case 1:
-            str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(filter01[panelData[P_filterType]])));
-            break;
-          case 0:
-            str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(filter02[panelData[P_filterType]])));
-            break;
-        }
-        // Check if the pointer is valid
-        if (str_ptr != nullptr) {
-          // Copy the string from program memory to RAM
-          strcpy_P(filterDisplay, str_ptr);
-        } else {
-          // Handle the case where the pointer is NULL (if needed)
-        }
-        tft3.setFont(&FreeSans12pt7b);
-
-        tft3.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
-        tft3.setCursor(260, 18);
-        tft3.print(panelData[P_filterPoleSW] == 0 ? "Off" : "On");
-
-        // Set range label and value inside a box along the top
-        tft3.fillRoundRect(10, 10, 200, 30, 5, ST7735_YELLOW);  // Background box for range
-        tft3.setCursor(40, 18);
-        tft3.setTextColor(ST7735_BLACK);
-        tft3.print(filterDisplay);
-        tft3.updateScreen();
+      tft3.setFont(&FreeSans12pt7b);
+      switch (panelData[P_filterPoleSW]) {
+        case 1:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(filter01[panelData[P_filterType]])));
+          break;
+        case 0:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(filter02[panelData[P_filterType]])));
+          break;
       }
+      // Check if the pointer is valid
+      if (str_ptr != nullptr) {
+        // Copy the string from program memory to RAM
+        strcpy_P(filterDisplay, str_ptr);
+      } else {
+        // Handle the case where the pointer is NULL (if needed)
+      }
+      tft3.setFont(&FreeSans12pt7b);
+
+      tft3.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
+      tft3.setCursor(260, 18);
+      tft3.print(panelData[P_filterPoleSW] == 0 ? "Off" : "On");
+
+      // Set range label and value inside a box along the top
+      tft3.fillRoundRect(10, 10, 200, 30, 5, ST7735_YELLOW);  // Background box for range
+      tft3.setCursor(40, 18);
+      tft3.setTextColor(ST7735_BLACK);
+      tft3.print(filterDisplay);
+      tft3.updateScreen();
       break;
 
     case CCsyncSW:
-      if (value == 127) {
-        srp.writePin(SYNC_LED, HIGH);
-        syncSW = 1;
-      } else if (value == 0) {
-        srp.writePin(SYNC_LED, LOW);
-        syncSW = 0;
+      panelData[P_sync] = value;
+      if (panelData[P_sync]) {
+        srp.set(SYNC_LED, HIGH);
+      } else if (!panelData[P_sync]) {
+        srp.set(SYNC_LED, LOW);
       }
-      if (dumpCompleteSW == 0) {
-        if (syncSW == 1) {
-          tft2.fillRoundRect(10, 10, 130, 30, 5, ST7735_RED);
-        } else {
-          tft2.fillRoundRect(10, 10, 130, 30, 5, ST7735_GREEN);
-        }
-        tft2.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
-        tft2.setCursor(30, 18);
-        tft2.print(syncSW == 0 ? "Sync Off" : "Sync On");
-        tft2.updateScreen();
+      if (panelData[P_sync]) {
+        tft2.fillRoundRect(10, 10, 130, 30, 5, ST7735_RED);
+      } else {
+        tft2.fillRoundRect(10, 10, 130, 30, 5, ST7735_GREEN);
       }
+      tft2.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
+      tft2.setCursor(30, 18);
+      tft2.print(panelData[P_sync] == 0 ? "Sync Off" : "Sync On");
+      tft2.updateScreen();
       break;
 
     case CClfoAlt:
-      if (value == 127) {
-        srp.writePin(LFO_ALT_LED, HIGH);
-        panelData[P_lfoAlt] = 1;
-      } else if (value == 0) {
-        srp.writePin(LFO_ALT_LED, LOW);
-        panelData[P_lfoAlt] = 0;
+      panelData[P_lfoAlt] = value;
+      if (panelData[P_lfoAlt]) {
+        srp.set(LFO_ALT_LED, HIGH);
+      } else if (!panelData[P_lfoAlt]) {
+        srp.set(LFO_ALT_LED, LOW);
       }
-      if (dumpCompleteSW == 0) {
-        if (panelData[P_lfoAlt] == 1) {
-          tft6.fillRoundRect(180, 50, 130, 30, 5, ST7735_RED);
-        } else {
-          tft6.fillRoundRect(180, 50, 130, 30, 5, ST7735_GREEN);
-        }
-        tft6.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
-        tft6.setCursor(195, 58);
-        tft6.print(panelData[P_lfoAlt] == 0 ? "Alt Off" : "Alt On");
-        tft6.updateScreen();
+      if (panelData[P_lfoAlt]) {
+        tft6.fillRoundRect(180, 50, 130, 30, 5, ST7735_RED);
+      } else {
+        tft6.fillRoundRect(180, 50, 130, 30, 5, ST7735_GREEN);
       }
+      tft6.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
+      tft6.setCursor(195, 58);
+      tft6.print(panelData[P_lfoAlt] == 0 ? "Alt Off" : "Alt On");
+      tft6.updateScreen();
       break;
 
     case CCfilterType:
       panelData[P_filterType] = value;
-      if (dumpCompleteSW == 0) {
-        switch (panelData[P_filterPoleSW]) {
-          case 1:
-            str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(filter01[panelData[P_filterType]])));
-            break;
-          case 0:
-            str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(filter02[panelData[P_filterType]])));
-            break;
-        }
-        // Check if the pointer is valid
-        if (str_ptr != nullptr) {
-          // Copy the string from program memory to RAM
-          strcpy_P(filterDisplay, str_ptr);
-        } else {
-          // Handle the case where the pointer is NULL (if needed)
-        }
-        tft3.setFont(&FreeSans12pt7b);
-        if (panelData[P_filterPoleSW] == 0) {
-          tft3.fillRoundRect(240, 10, 70, 30, 5, ST7735_GREEN);  // Green box for off
-        } else {
-          tft3.fillRoundRect(240, 10, 70, 30, 5, ST7735_RED);  // Red box for on
-        }
-        tft3.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
-        tft3.setCursor(260, 18);
-        tft3.print(panelData[P_filterPoleSW] == 0 ? "Off" : "On");
-
-        // Set range label and value inside a box along the top
-        tft3.fillRoundRect(10, 10, 200, 30, 5, ST7735_YELLOW);  // Background box for range
-        tft3.setCursor(40, 18);
-        tft3.setTextColor(ST7735_BLACK);
-        tft3.print(filterDisplay);
-        tft3.updateScreen();
+      switch (panelData[P_filterPoleSW]) {
+        case 1:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(filter01[panelData[P_filterType]])));
+          break;
+        case 0:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(filter02[panelData[P_filterType]])));
+          break;
       }
+      // Check if the pointer is valid
+      if (str_ptr != nullptr) {
+        // Copy the string from program memory to RAM
+        strcpy_P(filterDisplay, str_ptr);
+      } else {
+        // Handle the case where the pointer is NULL (if needed)
+      }
+      tft3.setFont(&FreeSans12pt7b);
+      if (panelData[P_filterPoleSW] == 0) {
+        tft3.fillRoundRect(240, 10, 70, 30, 5, ST7735_GREEN);  // Green box for off
+      } else {
+        tft3.fillRoundRect(240, 10, 70, 30, 5, ST7735_RED);  // Red box for on
+      }
+      tft3.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
+      tft3.setCursor(260, 18);
+      tft3.print(panelData[P_filterPoleSW] == 0 ? "Off" : "On");
+
+      // Set range label and value inside a box along the top
+      tft3.fillRoundRect(10, 10, 200, 30, 5, ST7735_YELLOW);  // Background box for range
+      tft3.setCursor(40, 18);
+      tft3.setTextColor(ST7735_BLACK);
+      tft3.print(filterDisplay);
+      tft3.updateScreen();
       break;
 
     case CCosc1Oct:
       panelData[P_osc1Range] = value;
-      if (dumpCompleteSW == 0) {
-        tft1.setFont(&FreeSans12pt7b);
-        // Set range label and value inside a box along the top
-        tft1.fillRoundRect(180, 10, 130, 30, 5, ST7735_YELLOW);  // Background box for range
-        tft1.setTextColor(ST7735_BLACK);
-        tft1.setCursor(195, 18);
-        switch (panelData[P_osc1Range]) {
-          case 0:
-            tft1.print("Range 32");
-            break;
-          case 1:
-            tft1.print("Range 16");
-            break;
-          case 2:
-            tft1.print("Range 8");
-            break;
-        }
-        tft1.updateScreen();
+      tft1.setFont(&FreeSans12pt7b);
+      // Set range label and value inside a box along the top
+      tft1.fillRoundRect(180, 10, 130, 30, 5, ST7735_YELLOW);  // Background box for range
+      tft1.setTextColor(ST7735_BLACK);
+      tft1.setCursor(195, 18);
+      switch (panelData[P_osc1Range]) {
+        case 0:
+          tft1.print("Range 32");
+          break;
+        case 1:
+          tft1.print("Range 16");
+          break;
+        case 2:
+          tft1.print("Range 8");
+          break;
       }
+      tft1.updateScreen();
       break;
 
     case CCosc2Oct:
       panelData[P_osc2Range] = value;
-      if (dumpCompleteSW == 0) {
-        tft2.setFont(&FreeSans12pt7b);
-        // Set range label and value inside a box along the top
-        tft2.fillRoundRect(180, 10, 130, 30, 5, ST7735_YELLOW);  // Background box for range
-        tft2.setTextColor(ST7735_BLACK);
-        tft2.setCursor(195, 18);
-        switch (panelData[P_osc2Range]) {
-          case 0:
-            tft2.print("Range 32");
-            break;
-          case 1:
-            tft2.print("Range 16");
-            break;
-          case 2:
-            tft2.print("Range 8");
-            break;
-        }
-        tft2.updateScreen();
+      tft2.setFont(&FreeSans12pt7b);
+      // Set range label and value inside a box along the top
+      tft2.fillRoundRect(180, 10, 130, 30, 5, ST7735_YELLOW);  // Background box for range
+      tft2.setTextColor(ST7735_BLACK);
+      tft2.setCursor(195, 18);
+      switch (panelData[P_osc2Range]) {
+        case 0:
+          tft2.print("Range 32");
+          break;
+        case 1:
+          tft2.print("Range 16");
+          break;
+        case 2:
+          tft2.print("Range 8");
+          break;
       }
+      tft2.updateScreen();
+      break;
+
+    case CCplayMode:
+      playMode = value;
+      tft0.fillRoundRect(50, 170, 120, 30, 5, ST7735_CYAN);  // Cyan box
+      tft0.setCursor(60, 178);
+      tft0.print("Keyboard");
+      tft0.fillRoundRect(180, 170, 130, 30, 5, ST7735_YELLOW);  // Yellow box
+      switch (playMode) {
+        case 0:
+          tft0.setCursor(195, 178);
+          tft0.print("Whole");
+          srp.set(KEYBOARD_RED_LED, LOW);
+          srp.set(KEYBOARD_GREEN_LED, LOW);
+          break;
+
+        case 1:
+          tft0.setCursor(195, 178);
+          tft0.print("Dual");
+          srp.set(KEYBOARD_RED_LED, LOW);
+          srp.set(KEYBOARD_GREEN_LED, HIGH);
+          break;
+
+        case 2:
+          tft0.setCursor(195, 178);
+          tft0.print("Split");
+          srp.set(KEYBOARD_RED_LED, HIGH);
+          srp.set(KEYBOARD_GREEN_LED, LOW);
+          break;
+      }
+      tft0.updateScreen();
+      break;
+
+    case CCeffectNumSW:
+      panelData[P_effectNum] = value;
+      switch (panelData[P_effectBank]) {
+        case 0:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name01[panelData[P_effectNum]])));
+          break;
+        case 1:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name11[panelData[P_effectNum]])));
+          break;
+        case 2:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name21[panelData[P_effectNum]])));
+          break;
+        case 3:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name31[panelData[P_effectNum]])));
+          break;
+      }
+      // Check if the pointer is valid
+      if (str_ptr != nullptr) {
+        // Copy the string from program memory to RAM
+        strcpy_P(buf1, str_ptr);
+      } else {
+        // Handle the case where the pointer is NULL (if needed)
+      }
+
+      switch (panelData[P_effectBank]) {
+        case 0:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name02[panelData[P_effectNum]])));
+          break;
+        case 1:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name12[panelData[P_effectNum]])));
+          break;
+        case 2:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name22[panelData[P_effectNum]])));
+          break;
+        case 3:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name32[panelData[P_effectNum]])));
+          break;
+      }
+      // Check if the pointer is valid
+      if (str_ptr != nullptr) {
+        // Copy the string from program memory to RAM
+        strcpy_P(buf2, str_ptr);
+      } else {
+        // Handle the case where the pointer is NULL (if needed)
+      }
+
+      switch (panelData[P_effectBank]) {
+        case 0:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name03[panelData[P_effectNum]])));
+          break;
+        case 1:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name13[panelData[P_effectNum]])));
+          break;
+        case 2:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name23[panelData[P_effectNum]])));
+          break;
+        case 3:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name33[panelData[P_effectNum]])));
+          break;
+      }
+
+      // Check if the pointer is valid
+      if (str_ptr != nullptr) {
+        // Copy the string from program memory to RAM
+        strcpy_P(buf3, str_ptr);
+      } else {
+        // Handle the case where the pointer is NULL (if needed)
+      }
+
+      switch (panelData[P_effectBank]) {
+        case 0:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name04[panelData[P_effectNum]])));
+          break;
+        case 1:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name14[panelData[P_effectNum]])));
+          break;
+        case 2:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name24[panelData[P_effectNum]])));
+          break;
+        case 3:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name34[panelData[P_effectNum]])));
+          break;
+      }
+      // Check if the pointer is valid
+      if (str_ptr != nullptr) {
+        // Copy the string from program memory to RAM
+        strcpy_P(buf4, str_ptr);
+      } else {
+        // Handle the case where the pointer is NULL (if needed)
+      }
+
+      switch (panelData[P_effectBank]) {
+        case 0:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name05[panelData[P_effectNum]])));
+          break;
+        case 1:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name15[panelData[P_effectNum]])));
+          break;
+        case 2:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name25[panelData[P_effectNum]])));
+          break;
+        case 3:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name35[panelData[P_effectNum]])));
+          break;
+      }
+      // Check if the pointer is valid
+      if (str_ptr != nullptr) {
+        // Copy the string from program memory to RAM
+        strcpy_P(buf5, str_ptr);
+      } else {
+        // Handle the case where the pointer is NULL (if needed)
+      }
+
+      tft7.fillRoundRect(10, 10, 200, 30, 5, ST7735_YELLOW);
+      tft7.setCursor(20, 18);
+      tft7.print(buf1);
+      tft7.setCursor(128, 18);
+      tft7.print(buf2);
+
+      tft7.fillRoundRect(240, 10, 70, 30, 5, ST7735_YELLOW);  // Green box for off
+      tft7.setCursor(266, 18);
+      tft7.print(panelData[P_effectBank] + 1);
+      tft7.updateScreen();
+      break;
+
+    case CCeffectBankSW:
+      panelData[P_effectBank] = value;
+
+      switch (panelData[P_effectBank]) {
+        case 0:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name01[panelData[P_effectNum]])));
+          break;
+        case 1:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name11[panelData[P_effectNum]])));
+          break;
+        case 2:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name21[panelData[P_effectNum]])));
+          break;
+        case 3:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name31[panelData[P_effectNum]])));
+          break;
+      }
+      // Check if the pointer is valid
+      if (str_ptr != nullptr) {
+        // Copy the string from program memory to RAM
+        strcpy_P(buf1, str_ptr);
+      } else {
+        // Handle the case where the pointer is NULL (if needed)
+      }
+
+      switch (panelData[P_effectBank]) {
+        case 0:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name02[panelData[P_effectNum]])));
+          break;
+        case 1:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name12[panelData[P_effectNum]])));
+          break;
+        case 2:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name22[panelData[P_effectNum]])));
+          break;
+        case 3:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name32[panelData[P_effectNum]])));
+          break;
+      }
+      // Check if the pointer is valid
+      if (str_ptr != nullptr) {
+        // Copy the string from program memory to RAM
+        strcpy_P(buf2, str_ptr);
+      } else {
+        // Handle the case where the pointer is NULL (if needed)
+      }
+
+      switch (panelData[P_effectBank]) {
+        case 0:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name03[panelData[P_effectNum]])));
+          break;
+        case 1:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name13[panelData[P_effectNum]])));
+          break;
+        case 2:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name23[panelData[P_effectNum]])));
+          break;
+        case 3:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name33[panelData[P_effectNum]])));
+          break;
+      }
+
+      // Check if the pointer is valid
+      if (str_ptr != nullptr) {
+        // Copy the string from program memory to RAM
+        strcpy_P(buf3, str_ptr);
+      } else {
+        // Handle the case where the pointer is NULL (if needed)
+      }
+
+      switch (panelData[P_effectBank]) {
+        case 0:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name04[panelData[P_effectNum]])));
+          break;
+        case 1:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name14[panelData[P_effectNum]])));
+          break;
+        case 2:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name24[panelData[P_effectNum]])));
+          break;
+        case 3:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name34[panelData[P_effectNum]])));
+          break;
+      }
+      // Check if the pointer is valid
+      if (str_ptr != nullptr) {
+        // Copy the string from program memory to RAM
+        strcpy_P(buf4, str_ptr);
+      } else {
+        // Handle the case where the pointer is NULL (if needed)
+      }
+
+      switch (panelData[P_effectBank]) {
+        case 0:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name05[panelData[P_effectNum]])));
+          break;
+        case 1:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name15[panelData[P_effectNum]])));
+          break;
+        case 2:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name25[panelData[P_effectNum]])));
+          break;
+        case 3:
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name35[panelData[P_effectNum]])));
+          break;
+      }
+      // Check if the pointer is valid
+      if (str_ptr != nullptr) {
+        // Copy the string from program memory to RAM
+        strcpy_P(buf5, str_ptr);
+      } else {
+        // Handle the case where the pointer is NULL (if needed)
+      }
+
+      tft7.fillRoundRect(10, 10, 200, 30, 5, ST7735_YELLOW);
+      tft7.setCursor(20, 18);
+      tft7.print(buf1);
+      tft7.setCursor(128, 18);
+      tft7.print(buf2);
+
+      tft7.fillRoundRect(240, 10, 70, 30, 5, ST7735_YELLOW);  // Green box for off
+      tft7.setCursor(266, 18);
+      tft7.print(panelData[P_effectBank] + 1);
+      tft7.updateScreen();
+      break;
+
+    case CCkeyboardMode:
+      panelData[P_keyboardMode] = value;
+      tft0.fillRoundRect(50, 210, 120, 30, 5, ST7735_CYAN);  // Cyan box
+      tft0.setCursor(60, 218);
+      tft0.print("Key Mode");
+      tft0.fillRoundRect(180, 210, 130, 30, 5, ST7735_YELLOW);  // Yellow box
+      switch (panelData[P_keyboardMode]) {
+        case 0:
+          tft0.setCursor(195, 218);
+          tft0.print("Poly 1");
+          srp.set(POLY1_LED, HIGH);
+          srp.set(POLY2_LED, LOW);
+          srp.set(UNISON_LED, LOW);
+          srp.set(MONO_LED, LOW);
+          break;
+
+        case 1:
+          tft0.setCursor(195, 218);
+          tft0.print("Poly 2");
+          srp.set(POLY1_LED, LOW);
+          srp.set(POLY2_LED, HIGH);
+          srp.set(UNISON_LED, LOW);
+          srp.set(MONO_LED, LOW);
+          break;
+
+        case 2:
+          tft0.setCursor(195, 218);
+          tft0.print("Unison");
+          srp.set(POLY1_LED, LOW);
+          srp.set(POLY2_LED, LOW);
+          srp.set(UNISON_LED, HIGH);
+          srp.set(MONO_LED, LOW);
+          break;
+
+        case 3:
+          tft0.setCursor(195, 218);
+          tft0.print("Mono");
+          srp.set(POLY1_LED, LOW);
+          srp.set(POLY2_LED, LOW);
+          srp.set(UNISON_LED, LOW);
+          srp.set(MONO_LED, HIGH);
+          break;
+      }
+      tft0.updateScreen();
       break;
 
     case CCfilterEGinv:
       if (value == 127) {
-        srp.writePin(EG_INVERT_LED, HIGH);
+        srp.set(EG_INVERT_LED, HIGH);
         panelData[P_filterEGinv] = 1;
       } else if (value == 0) {
-        srp.writePin(EG_INVERT_LED, LOW);
+        srp.set(EG_INVERT_LED, LOW);
         panelData[P_filterEGinv] = 0;
       }
-      // if (!dumpCompleteSW) {
-      //   renderCurrentPatchPage(4);
-      // }
+      if (panelData[P_filterEGinv] == 0) {
+        tft4.fillRoundRect(10, 10, 130, 30, 5, ST7735_GREEN);  // Green box for off
+      } else {
+        tft4.fillRoundRect(10, 10, 130, 30, 5, ST7735_RED);  // Red box for on
+      }
+      tft4.setCursor(30, 18);
+      tft4.print(panelData[P_filterEGinv] == 0 ? "EG Pos" : "Eg Neg");
+      tft4.updateScreen();
+      break;
+
+    case CCfilterVel:
+      panelData[P_filterVel] = value;
+      if (panelData[P_filterVel] == 0) {
+        tft4.fillRoundRect(180, 170, 130, 30, 5, ST7735_GREEN);  // Green box for off
+      } else {
+        tft4.fillRoundRect(180, 170, 130, 30, 5, ST7735_RED);  // Red box for on
+      }
+      tft4.setCursor(210, 178);
+      tft4.print(panelData[P_filterVel] == 0 ? "Vel Off" : "Vel On");
+      tft4.updateScreen();
+      break;
+
+    case CCvcaVel:
+      panelData[P_vcaVel] = value;
+      if (!panelData[P_vcaVel]) {
+        tft5.fillRoundRect(180, 170, 130, 30, 5, ST7735_GREEN);  // Green box for off
+      } else {
+        tft5.fillRoundRect(180, 170, 130, 30, 5, ST7735_RED);  // Red box for on
+      }
+      tft5.setCursor(210, 178);
+      tft5.print(panelData[P_vcaVel] == 0 ? "Vel Off" : "Vel On");
+      tft5.updateScreen();
+      break;
+
+    case CCfilterenvLinLogSW:
+      panelData[P_filterLogLin] = value;
+      if (!panelData[P_filterLogLin]) {
+        tft4.fillRoundRect(180, 90, 130, 30, 5, ST7735_GREEN);  // Green box for off
+      } else {
+        tft4.fillRoundRect(180, 90, 130, 30, 5, ST7735_RED);  // Red box for on
+      }
+      tft4.setCursor(210, 98);
+      tft4.print(panelData[P_filterLogLin] == 0 ? "Env Lin" : "Env Log");
+      tft4.updateScreen();
+      break;
+
+    case CCampenvLinLogSW:
+      panelData[P_ampLogLin] = value;
+      if (!panelData[P_ampLogLin]) {
+        tft5.fillRoundRect(180, 90, 130, 30, 5, ST7735_GREEN);  // Green box for off
+      } else {
+        tft5.fillRoundRect(180, 90, 130, 30, 5, ST7735_RED);  // Red box for on
+      }
+      tft5.setCursor(210, 98);
+      tft5.print(panelData[P_ampLogLin] == 0 ? "Env Lin" : "Env Log");
+      tft5.updateScreen();
+      break;
+
+    case CCFilterLoop:
+      panelData[P_filterLoop] = value;
+      tft4.fillRoundRect(180, 10, 130, 30, 5, ST7735_YELLOW);  // Green box for off
+      switch (panelData[P_filterLoop]) {
+        case 0:
+          tft4.setCursor(195, 18);
+          tft4.print("Loop Off");
+          break;
+        case 1:
+          tft4.setCursor(183, 18);
+          tft4.print("Loop Gated");
+          break;
+        case 2:
+          tft4.setCursor(195, 18);
+          tft4.print("Loop LFO");
+          break;
+      }
+      tft4.updateScreen();
+      break;
+
+    case CCAmpLoop:
+      panelData[P_vcaLoop] = value;
+      tft5.fillRoundRect(180, 10, 130, 30, 5, ST7735_YELLOW);  // Green box for off
+      switch (panelData[P_vcaLoop]) {
+        case 0:
+          tft5.setCursor(195, 18);
+          tft5.print("Loop Off");
+          break;
+        case 1:
+          tft5.setCursor(183, 18);
+          tft5.print("Loop Gated");
+          break;
+        case 2:
+          tft5.setCursor(195, 18);
+          tft5.print("Loop LFO");
+          break;
+      }
+      tft5.updateScreen();
       break;
   }
 }
@@ -893,300 +1061,263 @@ void myControlChange(byte channel, byte control, int value) {
 
     case CCglideTime:
       panelData[P_glideTime] = value;
-      if (!dumpCompleteSW) {
-        drawBar0(6, panelData[P_glideTime], NUM_STEPS, STEP_HEIGHT);
-        tft0.updateScreen();
-      }
+      drawBar0(6, panelData[P_glideTime], NUM_STEPS, STEP_HEIGHT);
+      tft0.updateScreen();
       break;
 
-      // TFT 1
+      // TFT 1 oscillator 1
+
     case CCosc1PW:
       panelData[P_osc1PW] = value;
-      if (dumpCompleteSW == 0) {
-        drawPWIndicator1(6, panelData[P_osc1PW]);
-        tft1.updateScreen();
-      }
+      Serial.println(panelData[P_osc1PW]);
+      drawPWIndicator1(6, panelData[P_osc1PW]);
+      tft1.updateScreen();
       break;
 
     case CCosc1PWM:
       panelData[P_osc1PWM] = value;
-      if (dumpCompleteSW == 0) {
-        drawBar1(52, panelData[P_osc1PWM], NUM_STEPS, STEP_HEIGHT);
-        tft1.updateScreen();
-      }
+      drawBar1(52, panelData[P_osc1PWM], NUM_STEPS, STEP_HEIGHT);
+      tft1.updateScreen();
       break;
 
     case CCosc1SawLevel:
       panelData[P_osc1SawLevel] = value;
-      if (dumpCompleteSW == 0) {
-        drawBar1(192, panelData[P_osc1SawLevel], NUM_STEPS, STEP_HEIGHT);
-        tft1.updateScreen();
-      }
+      drawBar1(192, panelData[P_osc1SawLevel], NUM_STEPS, STEP_HEIGHT);
+      tft1.updateScreen();
       break;
 
     case CCosc1PulseLevel:
       panelData[P_osc1PulseLevel] = value;
-      if (dumpCompleteSW == 0) {
-        drawBar1(236, panelData[P_osc1PulseLevel], NUM_STEPS, STEP_HEIGHT);
-        tft1.updateScreen();
-      }
+      drawBar1(236, panelData[P_osc1PulseLevel], NUM_STEPS, STEP_HEIGHT);
+      tft1.updateScreen();
       break;
 
     case CCosc1SubLevel:
       panelData[P_osc1SubLevel] = value;
-      if (dumpCompleteSW == 0) {
-        drawBar1(282, panelData[P_osc1SubLevel], NUM_STEPS, STEP_HEIGHT);
-        tft1.updateScreen();
-      }
+      drawBar1(282, panelData[P_osc1SubLevel], NUM_STEPS, STEP_HEIGHT);
+      tft1.updateScreen();
       break;
 
     case CCoscfmDepth:
       panelData[P_fmDepth] = value;
-      if (dumpCompleteSW == 0) {
-        drawBar1(98, panelData[P_fmDepth], NUM_STEPS, STEP_HEIGHT);
-        tft1.updateScreen();
-      }
+      drawBar1(98, panelData[P_fmDepth], NUM_STEPS, STEP_HEIGHT);
+      tft1.updateScreen();
       break;
 
-      // TFT 2
+      // TFT 2 oscillator 2
 
     case CCosc2PW:
       panelData[P_osc2PW] = value;
-      if (dumpCompleteSW == 0) {
-        drawPWIndicator2(6, panelData[P_osc2PW]);
-        tft2.updateScreen();
-      }
+      drawPWIndicator2(6, panelData[P_osc2PW]);
+      tft2.updateScreen();
       break;
 
     case CCosc2PWM:
       panelData[P_osc2PWM] = value;
-      if (dumpCompleteSW == 0) {
-        drawBar2(52, panelData[P_osc2PWM], NUM_STEPS, STEP_HEIGHT);
-        tft2.updateScreen();
-      }
+      drawBar2(52, panelData[P_osc2PWM], NUM_STEPS, STEP_HEIGHT);
+      tft2.updateScreen();
       break;
 
     case CCosc2Detune:
       panelData[P_osc2Detune] = value;
-      if (dumpCompleteSW == 0) {
-        drawBar2(98, panelData[P_osc2Detune], NUM_STEPS, STEP_HEIGHT);
-        tft2.updateScreen();
-      }
+      drawBar2(98, panelData[P_osc2Detune], NUM_STEPS, STEP_HEIGHT);
+      tft2.updateScreen();
       break;
 
     case CCosc2Interval:
       panelData[P_osc2Interval] = value;
-      if (dumpCompleteSW == 0) {
-        drawBar2(144, panelData[P_osc2Interval], DET_STEPS, DET_STEP_HEIGHT);
-        tft2.updateScreen();
-      }
+      drawBar2(144, panelData[P_osc2Interval], DET_STEPS, DET_STEP_HEIGHT);
+      tft2.updateScreen();
       break;
 
     case CCosc2sawLevel:
       panelData[P_osc2SawLevel] = value;
-      if (dumpCompleteSW == 0) {
-        drawBar2(192, panelData[P_osc2SawLevel], NUM_STEPS, STEP_HEIGHT);
-        tft2.updateScreen();
-      }
+      drawBar2(192, panelData[P_osc2SawLevel], NUM_STEPS, STEP_HEIGHT);
+      tft2.updateScreen();
       break;
 
     case CCosc2pulseLevel:
       panelData[P_osc2PulseLevel] = value;
-      if (dumpCompleteSW == 0) {
-        drawBar2(236, panelData[P_osc2PulseLevel], NUM_STEPS, STEP_HEIGHT);
-        tft2.updateScreen();
-      }
+      drawBar2(236, panelData[P_osc2PulseLevel], NUM_STEPS, STEP_HEIGHT);
+      tft2.updateScreen();
       break;
 
     case CCosc2triangleLevel:
       panelData[P_osc2TriangleLevel] = value;
-      if (dumpCompleteSW == 0) {
-        drawBar2(282, panelData[P_osc2TriangleLevel], NUM_STEPS, STEP_HEIGHT);
-        tft2.updateScreen();
-      }
+      drawBar2(282, panelData[P_osc2TriangleLevel], NUM_STEPS, STEP_HEIGHT);
+      tft2.updateScreen();
       break;
 
       // TFT 3
 
     case CCKeyTrack:
       panelData[P_keytrack] = value;
-      if (dumpCompleteSW == 0) {
-        drawBar3(144, panelData[P_keytrack], NUM_STEPS, STEP_HEIGHT);
-        tft3.updateScreen();
-      }
+      drawBar3(144, panelData[P_keytrack], NUM_STEPS, STEP_HEIGHT);
+      tft3.updateScreen();
       break;
 
     case CCfilterCutoff:
       panelData[P_filterCutoff] = value;
-      if (dumpCompleteSW == 0) {
-        drawBar3(6, panelData[P_filterCutoff], NUM_STEPS, STEP_HEIGHT);
-        tft3.updateScreen();
-      }
+      drawBar3(6, panelData[P_filterCutoff], NUM_STEPS, STEP_HEIGHT);
+      tft3.updateScreen();
       break;
 
     case CCfilterLFO:
       panelData[P_filterLFO] = value;
-      if (dumpCompleteSW == 0) {
-        drawBar3(192, panelData[P_filterLFO], NUM_STEPS, STEP_HEIGHT);
-        tft3.updateScreen();
-      }
+      drawBar3(192, panelData[P_filterLFO], NUM_STEPS, STEP_HEIGHT);
+      tft3.updateScreen();
       break;
 
     case CCfilterRes:
       panelData[P_filterRes] = value;
-      if (dumpCompleteSW == 0) {
-        drawBar3(52, panelData[P_filterRes], NUM_STEPS, STEP_HEIGHT);
-        tft3.updateScreen();
-      }
+      drawBar3(52, panelData[P_filterRes], NUM_STEPS, STEP_HEIGHT);
+      tft3.updateScreen();
       break;
 
     case CCfilterEGlevel:
       panelData[P_filterEGlevel] = value;
-      if (dumpCompleteSW == 0) {
-        drawBar3(98, panelData[P_filterEGlevel], NUM_STEPS, STEP_HEIGHT);
-        tft3.updateScreen();
-      }
+      drawBar3(98, panelData[P_filterEGlevel], NUM_STEPS, STEP_HEIGHT);
+      tft3.updateScreen();
       break;
 
-    case CCeffect1:
-      panelData[P_effectPot1] = value;
-      // if (!dumpCompleteSW) {
-      //   renderCurrentPatchPage(7);
-      // }
-      break;
-
-    case CCeffect2:
-      panelData[P_effectPot2] = value;
-      // if (!dumpCompleteSW) {
-      //   renderCurrentPatchPage(7);
-      // }
-      break;
-
-    case CCeffect3:
-      panelData[P_effectPot3] = value;
-      // if (!dumpCompleteSW) {
-      //   renderCurrentPatchPage(7);
-      // }
-      break;
-
-    case CCeffectMix:
-      panelData[P_effectsMix] = map(value, 0, readRes, 0, readRes);
-      // if (!dumpCompleteSW) {
-      //   renderCurrentPatchPage(7);
-      // }
-      break;
-
-    case CCnoiseLevel:
-      panelData[P_noiseLevel] = value;
-      // if (!dumpCompleteSW) {
-      //   renderCurrentPatchPage(8);
-      // }
-      break;
-
-    case CCLFORate:
-      panelData[P_LFORate] = value;
-      if (dumpCompleteSW == 0) {
-        drawBar6(6, panelData[P_LFORate], NUM_STEPS, STEP_HEIGHT);
-        tft6.updateScreen();
-      }
-      break;
+      // TFT 4 Filter ADSR
 
     case CCfilterAttack:
       panelData[P_filterAttack] = value;
-      // if (!dumpCompleteSW) {
-      //   renderCurrentPatchPage(4);
-      // }
+      drawBar4(6, panelData[P_filterAttack], NUM_STEPS, STEP_HEIGHT);
+      tft4.updateScreen();
       break;
 
     case CCfilterDecay:
       panelData[P_filterDecay] = value;
-      // if (!dumpCompleteSW) {
-      //   renderCurrentPatchPage(4);
-      // }
+      drawBar4(52, panelData[P_filterDecay], NUM_STEPS, STEP_HEIGHT);
+      tft4.updateScreen();
       break;
 
     case CCfilterSustain:
       panelData[P_filterSustain] = value;
-      // if (!dumpCompleteSW) {
-      //   renderCurrentPatchPage(4);
-      // }
+      drawBar4(98, panelData[P_filterSustain], NUM_STEPS, STEP_HEIGHT);
+      tft4.updateScreen();
       break;
 
     case CCfilterRelease:
       panelData[P_filterRelease] = value;
-      // if (!dumpCompleteSW) {
-      //   renderCurrentPatchPage(4);
-      // }
+      drawBar4(144, panelData[P_filterRelease], NUM_STEPS, STEP_HEIGHT);
+      tft4.updateScreen();
       break;
+
+      // TFT 5 Amp ADSR
 
     case CCampAttack:
       panelData[P_ampAttack] = value;
       panelData[P_oldampAttack] = value;
-      // if (!dumpCompleteSW) {
-      //   renderCurrentPatchPage(5);
-      // }
+      drawBar5(6, panelData[P_ampAttack], NUM_STEPS, STEP_HEIGHT);
+      tft5.updateScreen();
       break;
 
     case CCampDecay:
       panelData[P_ampDecay] = value;
       panelData[P_oldampDecay] = value;
-      // if (!dumpCompleteSW) {
-      //   renderCurrentPatchPage(5);
-      // }
+      drawBar5(52, panelData[P_ampDecay], NUM_STEPS, STEP_HEIGHT);
+      tft5.updateScreen();
       break;
 
     case CCampSustain:
       panelData[P_ampSustain] = value;
       panelData[P_oldampSustain] = value;
-      // if (!dumpCompleteSW) {
-      //   renderCurrentPatchPage(5);
-      // }
+      drawBar5(98, panelData[P_ampSustain], NUM_STEPS, STEP_HEIGHT);
+      tft5.updateScreen();
       break;
 
     case CCampRelease:
       panelData[P_ampRelease] = value;
       panelData[P_oldampRelease] = value;
-      // if (!dumpCompleteSW) {
-      //   renderCurrentPatchPage(5);
-      // }
+      drawBar5(144, panelData[P_ampRelease], NUM_STEPS, STEP_HEIGHT);
+      tft5.updateScreen();
       break;
 
-    case CCvolumeControl:
-      panelData[P_volumeControl] = value;
-      // if (!dumpCompleteSW) {
-      //   renderCurrentPatchPage(8);
-      // }
+      // TFT 6 LFO
+
+    case CCLFORate:
+      panelData[P_LFORate] = value;
+      drawBar6(6, panelData[P_LFORate], NUM_STEPS, STEP_HEIGHT);
+      tft6.updateScreen();
       break;
 
     case CCLFODelay:
       panelData[P_LFODelay] = value;
-      if (dumpCompleteSW == 0) {
-        drawBar6(52, panelData[P_LFODelay], NUM_STEPS, STEP_HEIGHT);
-        tft6.updateScreen();
-      }
+      drawBar6(52, panelData[P_LFODelay], NUM_STEPS, STEP_HEIGHT);
+      tft6.updateScreen();
       break;
 
     case CCpwLFO:
       panelData[P_pwLFO] = value;
-      if (dumpCompleteSW == 0) {
-        drawBar6(98, panelData[P_pwLFO], NUM_STEPS, STEP_HEIGHT);
-        tft6.updateScreen();
-      }
+      drawBar6(98, panelData[P_pwLFO], NUM_STEPS, STEP_HEIGHT);
+      tft6.updateScreen();
       break;
 
     case CCmodWheelDepth:
       panelData[P_modWheelDepth] = value;
-      if (dumpCompleteSW == 0) {
-        drawBar6(144, panelData[P_modWheelDepth], NUM_STEPS, STEP_HEIGHT);
-        tft6.updateScreen();
-      }
+      drawBar6(144, panelData[P_modWheelDepth], NUM_STEPS, STEP_HEIGHT);
+      tft6.updateScreen();
+      break;
+
+      // TFT 7 effects
+
+    case CCeffect1:
+      panelData[P_effectPot1] = value;
+      drawBar7(6, panelData[P_effectPot1], NUM_STEPS, STEP_HEIGHT);
+      tft7.updateScreen();
+      break;
+
+    case CCeffect2:
+      panelData[P_effectPot2] = value;
+      drawBar7(52, panelData[P_effectPot2], NUM_STEPS, STEP_HEIGHT);
+      tft7.updateScreen();
+      break;
+
+    case CCeffect3:
+      panelData[P_effectPot3] = value;
+      drawBar7(98, panelData[P_effectPot3], NUM_STEPS, STEP_HEIGHT);
+      tft7.updateScreen();
+      break;
+
+    case CCeffectMix:
+      panelData[P_effectsMix] = map(value, 0, readRes, 0, readRes);
+      drawPWIndicator7(144, panelData[P_effectsMix]);
+      tft7.updateScreen();
+      break;
+
+      // TFT 8 Polymod etc
+
+    case CCPM_DCO2:
+      panelData[P_pmDCO2] = value;
+      drawBar8(6, panelData[P_pmDCO2], NUM_STEPS, STEP_HEIGHT);
+      tft8.updateScreen();
+      break;
+
+    case CCPM_FilterEnv:
+      panelData[P_pmFilterEnv] = value;
+      drawBar8(52, panelData[P_pmFilterEnv], NUM_STEPS, STEP_HEIGHT);
+      tft8.updateScreen();
+      break;
+
+    case CCnoiseLevel:
+      panelData[P_noiseLevel] = value;
+      drawPWIndicator8(192, panelData[P_noiseLevel]);
+      tft8.updateScreen();
       break;
 
     case CCamDepth:
       panelData[P_amDepth] = value;
-      // if (!dumpCompleteSW) {
-      //   renderCurrentPatchPage(8);
-      // }
+      drawBar8(144, panelData[P_amDepth], NUM_STEPS, STEP_HEIGHT);
+      tft8.updateScreen();
+      break;
+
+    case CCvolumeControl:
+      panelData[P_volumeControl] = value;
+      drawBar8(98, panelData[P_volumeControl], NUM_STEPS, STEP_HEIGHT);
+      tft8.updateScreen();
       break;
 
     case CCmodwheel:
@@ -1247,150 +1378,166 @@ void myControlChange(byte channel, byte control, int value) {
           break;
       }
       break;
+  }
+}
 
-      // Switches ////////////////////////////////////////////////
+void onSysExMessage(byte *data, unsigned length) {
 
-    case CCfilterType:
-      panelData[P_filterType] = value;
-      //updateFilterType();
+  lastSysExByteTime = millis();
+
+  Serial.print("Received SysEx message with length: ");
+  Serial.println(length);
+
+  // Check if the received data length matches our expected length
+  if (length == sysexDataLength + 3) {  // 3 bytes for Manufacturer ID
+    for (int i = 2; i < 72; i++) {
+      byte highByte = data[i * 2];
+      // Serial.print(highByte);
+      // Serial.print(" ");
+      byte lowByte = data[i * 2 + 1];
+      // Serial.print(lowByte);
+      // Serial.print(" ");
+      panelData[i - 2] = (uint16_t)(highByte << 8) | lowByte;
+      if (panelData[0] == 0) {
+        memcpy(lowerData, panelData, 70);
+      } else {
+        memcpy(upperData, panelData, 70);
+      }
+    }
+    //Serial.println(" ");
+
+  } else {
+    Serial.println("Received SysEx message of unexpected length");
+  }
+}
+
+void processSysExData() {
+  renderCurrentPatchPage(0);
+  tft0.updateScreen();
+  renderCurrentPatchPage(1);
+  tft1.updateScreen();
+  renderCurrentPatchPage(2);
+  tft2.updateScreen();
+  renderCurrentPatchPage(3);
+  tft3.updateScreen();
+  renderCurrentPatchPage(4);
+  tft4.updateScreen();
+  renderCurrentPatchPage(5);
+  tft5.updateScreen();
+  renderCurrentPatchPage(6);
+  tft6.updateScreen();
+  renderCurrentPatchPage(7);
+  tft7.updateScreen();
+  renderCurrentPatchPage(8);
+  tft8.updateScreen();
+  updateLEDs();
+}
+
+void updateLEDs() {
+  switch (panelData[P_keyboardMode]) {
+    case 0:
+      srp.set(POLY1_LED, HIGH);
+      srp.set(POLY2_LED, LOW);
+      srp.set(UNISON_LED, LOW);
+      srp.set(MONO_LED, LOW);
       break;
 
-    case CCLFOWaveform:
-      panelData[P_LFOWaveform] = value;
-      //updateStratusLFOWaveform();
+    case 1:
+      srp.set(POLY1_LED, LOW);
+      srp.set(POLY2_LED, HIGH);
+      srp.set(UNISON_LED, LOW);
+      srp.set(MONO_LED, LOW);
       break;
 
-    case CCglideSW:
-      value > 0 ? panelData[P_glideSW] = 1 : panelData[P_glideSW] = 0;
-      //updateglideSW();
+    case 2:
+      srp.set(POLY1_LED, LOW);
+      srp.set(POLY2_LED, LOW);
+      srp.set(UNISON_LED, HIGH);
+      srp.set(MONO_LED, LOW);
       break;
 
-    case CCupperSW:
-      upperSW = 1;
-      lowerSW = 0;
-      //updateupperSW();
+    case 3:
+      srp.set(POLY1_LED, LOW);
+      srp.set(POLY2_LED, LOW);
+      srp.set(UNISON_LED, LOW);
+      srp.set(MONO_LED, HIGH);
       break;
+  }
 
-    case CClowerSW:
-      lowerSW = 1;
-      upperSW = 0;
-      //updatelowerSW();
+  switch (upperSW) {
+    case 0:
+      srp.set(UPPER_LED, LOW);
       break;
-
-    case CCchordHoldSW:
-      value > 0 ? chordHoldSW = 1 : chordHoldSW = 0;
-      //updatechordHoldSW();
+    case 1:
+      srp.set(LOWER_LED, HIGH);
       break;
+  }
 
-    case CCfilterPoleSW:
-      value > 0 ? panelData[P_filterPoleSW] = 1 : panelData[P_filterPoleSW] = 0;
-      //updatefilterPoleSwitch();
+  switch (upperSW) {
+    case 0:
+      srp.set(UPPER_LED, LOW);
+      srp.set(LOWER_LED, HIGH);
       break;
-
-    case CCfilterEGinv:
-      value > 0 ? panelData[P_filterEGinv] = 1 : panelData[P_filterEGinv] = 0;
-      //updatefilterEGinv();
+    case 1:
+      srp.set(UPPER_LED, HIGH);
+      srp.set(LOWER_LED, LOW);
       break;
+  }
 
-    case CCsyncSW:
-      value > 0 ? syncSW = 1 : syncSW = 0;
-      //updatesyncSwitch();
+  switch (lowerSW) {
+    case 0:
+      srp.set(LOWER_LED, LOW);
+      srp.set(UPPER_LED, HIGH);
       break;
-
-    // case CCosc1Oct:
-    //   switch (panelData[P_osc1Range]) {
-    //     case 0:
-    //       midiCCOut(CCosc1Oct, 0);
-    //       break;
-
-    //     case 1:
-    //       midiCCOut(CCosc1Oct, 64);
-    //       break;
-
-    //     case 2:
-    //       midiCCOut(CCosc1Oct, 127);
-    //       break;
-    //   }
-    //   break;
-
-    // case CCosc2Oct:
-    //   switch (panelData[P_osc2Range]) {
-    //     case 0:
-    //       midiCCOut(CCosc2Oct, 0);
-    //       break;
-
-    //     case 1:
-    //       midiCCOut(CCosc2Oct, 64);
-    //       break;
-
-    //     case 2:
-    //       midiCCOut(CCosc2Oct, 127);
-    //       break;
-    //   }
-    //   break;
-
-
-    case CClfoAlt:
-      value > 0 ? panelData[P_lfoAlt] = 1 : panelData[P_lfoAlt] = 0;
-      //updatelfoAlt();
+    case 1:
+      srp.set(LOWER_LED, HIGH);
+      srp.set(UPPER_LED, LOW);
       break;
+  }
 
-      // case CClfoMult:
-      //   updatelfoMult();
-      //   break;
-
-      // case CCfilterVelSW:
-      //   value > 0 ? panelData[P_filterVel] = 1 : panelData[P_filterVel] = 0;
-      //   updatefilterVelSW();
-      //   break;
-
-      // case CCampVelSW:
-      //   value > 0 ? panelData[P_vcaVel] = 1 : panelData[P_vcaVel] = 0;
-      //   updateampVelSW();
-      //   break;
-
-      // case CCFilterLoop:
-      //   updateFilterLoop();
-      //   break;
-
-      // case CCAmpLoop:
-      //   updateAmpLoop();
-      //   break;
-
-      // case CCAmpGatedSW:
-      //   value > 0 ? panelData[P_vcaGate] = 1 : panelData[P_vcaGate] = 0;
-      //   updateAmpGatedSW();
-      //   break;
-
-      // case CCeffectBankSW:
-      //   updateeffectBankSW();
-      //   break;
-
-      // case CCeffectNumSW:
-      //   updateeffectNumSW();
-      //   break;
-
-      // case CCenvLinLogSW:
-      //   value > 0 ? envLinLogSW = 1 : envLinLogSW = 0;
-      //   updateenvLinLogSW();
-      //   break;
-
-    case CCkeyboardMode:
-      //updatekeyboardMode();
+  switch (panelData[P_glideSW]) {
+    case 0:
+      srp.set(GLIDE_SW_LED, LOW);
       break;
+    case 1:
+      srp.set(GLIDE_SW_LED, HIGH);
+      break;
+  }
 
-      // case CCNotePriority:
-      //   updateNotePriority();
-      //   break;
+  switch (panelData[P_sync]) {
+    case 0:
+      srp.set(SYNC_LED, LOW);
+      break;
+    case 1:
+      srp.set(SYNC_LED, HIGH);
+      break;
+  }
 
-      // case CCmonoMultiSW:
-      //   value > 0 ? monoMultiSW = 1 : monoMultiSW = 0;
-      //   updatemonoMultiSW();
-      //   break;
+  switch (panelData[P_filterPoleSW]) {
+    case 0:
+      srp.set(FILTER_POLE_LED, LOW);
+      break;
+    case 1:
+      srp.set(FILTER_POLE_LED, HIGH);
+      break;
+  }
 
-      // case CCallnotesoff:
-      //   allNotesOff();
-      //   break;
+  switch (panelData[P_filterEGinv]) {
+    case 0:
+      srp.set(EG_INVERT_LED, LOW);
+      break;
+    case 1:
+      srp.set(EG_INVERT_LED, HIGH);
+      break;
+  }
+
+  switch (panelData[P_lfoAlt]) {
+    case 0:
+      srp.set(LFO_ALT_LED, LOW);
+      break;
+    case 1:
+      srp.set(LFO_ALT_LED, HIGH);
+      break;
   }
 }
 
@@ -1404,14 +1551,14 @@ void midiCCOut(int CCnumberTosend, int value) {
 
 void loop() {
 
-  // // Prioritize MIDI processing
-  // MIDI.read();
+  // Prioritize MIDI processing
+  MIDI.read(MIDI_CHANNEL_OMNI);
+  //srp.update();  // update all the LEDs in the buttons
 
-  // // Check for any other tasks that need to be done
-  // if (millis() - lastSysExByteTime < sysExTimeout) {
-  //   // Handle other tasks, such as screen updates, here
-  //   processSysExData();
-  //   srp.update();         // update all the LEDs in the buttons
-  // }
-
+  // Check for any other tasks that need to be done
+  if (millis() - lastSysExByteTime < sysExTimeout) {
+    // Handle other tasks, such as screen updates, here
+    //srp.update();  // update all the LEDs in the buttons
+    processSysExData();
+  }
 }

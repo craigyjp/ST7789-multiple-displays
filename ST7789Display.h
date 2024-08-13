@@ -42,8 +42,6 @@ int paramType = PARAMETER;
 int screenWidth = 320;
 int screenHeight = 140;
 
-boolean MIDIClkSignal = false;
-
 unsigned long timer = 0;
 
 void startTimer() {
@@ -109,6 +107,32 @@ void drawBar3(int x, int value, int steps, int stepHeight) {
 }
 
 // Function to draw the bar
+void drawBar4(int x, int value, int steps, int stepHeight) {
+  int filledSteps = value / (1023 / steps);  // Calculate the number of steps to fill
+  for (int i = 0; i < steps; i++) {
+    int y = 210 - (i * stepHeight);
+    if (i < filledSteps) {
+      tft4.fillRoundRect(x, y - stepHeight, BAR_WIDTH, stepHeight - 2, 2, ST7735_YELLOW);  // Filled step
+    } else {
+      tft4.fillRoundRect(x, y - stepHeight, BAR_WIDTH, stepHeight - 2, 2, ST7735_BLACK);  // Unfilled step
+    }
+  }
+}
+
+// Function to draw the bar
+void drawBar5(int x, int value, int steps, int stepHeight) {
+  int filledSteps = value / (1023 / steps);  // Calculate the number of steps to fill
+  for (int i = 0; i < steps; i++) {
+    int y = 210 - (i * stepHeight);
+    if (i < filledSteps) {
+      tft5.fillRoundRect(x, y - stepHeight, BAR_WIDTH, stepHeight - 2, 2, ST7735_YELLOW);  // Filled step
+    } else {
+      tft5.fillRoundRect(x, y - stepHeight, BAR_WIDTH, stepHeight - 2, 2, ST7735_BLACK);  // Unfilled step
+    }
+  }
+}
+
+// Function to draw the bar
 void drawBar6(int x, int value, int steps, int stepHeight) {
   int filledSteps = value / (1023 / steps);  // Calculate the number of steps to fill
   for (int i = 0; i < steps; i++) {
@@ -134,9 +158,17 @@ void drawBar7(int x, int value, int steps, int stepHeight) {
   }
 }
 
-
-void fillTriangle(int x0, int y0, int x1, int y1, int x2, int y2, uint16_t color) {
-  tft4.fillTriangle(x0, y0, x1, y1, x2, y2, color);
+// Function to draw the bar
+void drawBar8(int x, int value, int steps, int stepHeight) {
+  int filledSteps = value / (1023 / steps);  // Calculate the number of steps to fill
+  for (int i = 0; i < steps; i++) {
+    int y = 210 - (i * stepHeight);
+    if (i < filledSteps) {
+      tft8.fillRoundRect(x, y - stepHeight, BAR_WIDTH, stepHeight - 2, 2, ST7735_YELLOW);  // Filled step
+    } else {
+      tft8.fillRoundRect(x, y - stepHeight, BAR_WIDTH, stepHeight - 2, 2, ST7735_BLACK);  // Unfilled step
+    }
+  }
 }
 
 void drawPWIndicator1(int x, int value) {
@@ -167,65 +199,33 @@ void drawPWIndicator2(int x, int value) {
   tft2.fillRoundRect(x, y - STEP_HEIGHT / 2, BAR_WIDTH, STEP_HEIGHT, 2, ST7735_YELLOW);
 }
 
-void renderFilterPoints() {
-  maxSectionWidth = (screenWidth - 80) / 3;  // Limit each section to a third of the available width minus the sustain
-  attackX = mapValue(panelData[P_filterAttack], 1023, maxSectionWidth);
-  decayX = attackX + mapValue(panelData[P_filterDecay], 1023, maxSectionWidth);
-  sustainLevel = screenHeight - mapValue(panelData[P_filterSustain], 1023, screenHeight);
-  sustainX = decayX + 80;                                                // Fixed length sustain bar of 80 pixels
-  releaseX = sustainX + mapValue(panelData[P_filterRelease], 1023, maxSectionWidth);  // Release limited to a third of the screen width
+void drawPWIndicator7(int x, int value) {
+  // Clear the entire bar area by drawing a rectangle with the background color
+  tft7.fillRoundRect(x, 208 - BAR_HEIGHT, BAR_WIDTH, BAR_HEIGHT, 2, ST7735_BLACK);
+  tft7.drawFastVLine(156, 50, 155, ST7735_RED);
+  tft7.drawFastHLine(144, 50, 24, ST7735_RED);
+  tft7.drawFastHLine(144, 127, 24, ST7735_RED);
+  tft7.drawFastHLine(144, 205, 24, ST7735_RED);
+  // Calculate the y position for the current value
+  int y = 205 - ((value * (BAR_HEIGHT - STEP_HEIGHT)) / 1023);
 
-  // Ensure release does not go beyond screen width
-  if (releaseX > screenWidth) {
-    releaseX = screenWidth;
-  }
-
-  // Define points for the ADSR envelope
-  pointsX[0] = 0;
-  pointsX[1] = attackX;
-  pointsX[2] = decayX;
-  pointsX[3] = sustainX;
-  pointsX[4] = releaseX;
-  pointsX[5] = screenWidth;
-
-  pointsY[0] = screenHeight + offsetY;
-  pointsY[1] = offsetY;
-  pointsY[2] = sustainLevel + offsetY;
-  pointsY[3] = sustainLevel + offsetY;
-  pointsY[4] = screenHeight + offsetY;
-  pointsY[5] = screenHeight + offsetY;
+  // Draw the new bar at the calculated position
+  tft7.fillRoundRect(x, y - STEP_HEIGHT / 2, BAR_WIDTH, STEP_HEIGHT, 2, ST7735_YELLOW);
 }
 
-void renderAmpPoints() {
-  maxSectionWidth = (screenWidth - 80) / 3;  // Limit each section to a third of the available width minus the sustain
-  AmpattackX = mapValue(panelData[P_ampAttack], 1023, maxSectionWidth);
-  AmpdecayX = AmpattackX + mapValue(panelData[P_ampDecay], 1023, maxSectionWidth);
-  AmpsustainLevel = screenHeight - mapValue(panelData[P_ampSustain], 1023, screenHeight);
-  AmpsustainX = AmpdecayX + 80;                                             // Fixed length sustain bar of 80 pixels
-  AmpreleaseX = AmpsustainX + mapValue(panelData[P_ampRelease], 1023, maxSectionWidth);  // Release limited to a third of the screen width
+void drawPWIndicator8(int x, int value) {
+  // Clear the entire bar area by drawing a rectangle with the background color
+  tft8.fillRoundRect(x, 208 - BAR_HEIGHT, BAR_WIDTH, BAR_HEIGHT, 2, ST7735_BLACK);
+  tft8.drawFastVLine(204, 50, 155, ST7735_RED);
+  tft8.drawFastHLine(192, 50, 24, ST7735_RED);
+  tft8.drawFastHLine(192, 127, 24, ST7735_RED);
+  tft8.drawFastHLine(192, 205, 24, ST7735_RED);
+  // Calculate the y position for the current value
+  int y = 205 - ((value * (BAR_HEIGHT - STEP_HEIGHT)) / 1023);
 
-  // Ensure release does not go beyond screen width
-  if (AmpreleaseX > screenWidth) {
-    AmpreleaseX = screenWidth;
-  }
-
-  // Define points for the ADSR envelope
-  AmppointsX[0] = 0;
-  AmppointsX[1] = AmpattackX;
-  AmppointsX[2] = AmpdecayX;
-  AmppointsX[3] = AmpsustainX;
-  AmppointsX[4] = AmpreleaseX;
-  AmppointsX[5] = screenWidth;
-
-  AmppointsY[0] = screenHeight + offsetY;
-  AmppointsY[1] = offsetY;
-  AmppointsY[2] = AmpsustainLevel + offsetY;
-  AmppointsY[3] = AmpsustainLevel + offsetY;
-  AmppointsY[4] = screenHeight + offsetY;
-  AmppointsY[5] = screenHeight + offsetY;
+  // Draw the new bar at the calculated position
+  tft8.fillRoundRect(x, y - STEP_HEIGHT / 2, BAR_WIDTH, STEP_HEIGHT, 2, ST7735_YELLOW);
 }
-
-
 void renderCurrentPatchPage(int parameter) {
 
   parameterGroup = parameter;
@@ -305,7 +305,7 @@ void renderCurrentPatchPage(int parameter) {
       tft0.setCursor(60, 178);
       tft0.print("Keyboard");
       tft0.fillRoundRect(180, 170, 130, 30, 5, ST7735_YELLOW);  // Yellow box
-      switch (keyboardMode) {
+      switch (playMode) {
         case 0:
           tft0.setCursor(195, 178);
           tft0.print("Whole");
@@ -326,7 +326,7 @@ void renderCurrentPatchPage(int parameter) {
       tft0.setCursor(60, 218);
       tft0.print("Key Mode");
       tft0.fillRoundRect(180, 210, 130, 30, 5, ST7735_YELLOW);  // Yellow box
-      switch (playMode) {
+      switch (panelData[P_keyboardMode]) {
         case 0:
           tft0.setCursor(195, 218);
           tft0.print("Poly 1");
@@ -447,14 +447,14 @@ void renderCurrentPatchPage(int parameter) {
           break;
       }
 
-      // panelData[P_sync] indicator box along the top
-      if (syncSW == 0) {
+      // Sync indicator box along the top
+      if (!panelData[P_sync]) {
         tft2.fillRoundRect(10, 10, 130, 30, 5, ST7735_GREEN);  // Green box for off
       } else {
         tft2.fillRoundRect(10, 10, 130, 30, 5, ST7735_RED);  // Red box for on
       }
       tft2.setCursor(30, 18);
-      tft2.print(syncSW == 0 ? "Sync Off" : "Sync On");
+      tft2.print(panelData[P_sync] == 0 ? "Sync Off" : "Sync On");
 
       // Drawing the PW lines
       tft2.drawFastVLine(18, 50, 155, ST7735_RED);
@@ -509,7 +509,6 @@ void renderCurrentPatchPage(int parameter) {
       } else {
         // Handle the case where the pointer is NULL (if needed)
       }
-      tft3.setFont(&FreeSans12pt7b);
       if (panelData[P_filterPoleSW] == 0) {
         tft3.fillRoundRect(240, 10, 70, 30, 5, ST7735_GREEN);  // Green box for off
       } else {
@@ -535,131 +534,137 @@ void renderCurrentPatchPage(int parameter) {
     case 4:  // filter ADSR
       // ************************ DISPLAY 4 **************************
       tft4.fillScreen(ST7735_BLACK);
-      tft4.setFont(&FreeSans12pt7b);
+      tft4.setFont(&FreeSans9pt7b);
+      tft4.setTextColor(ST7735_WHITE);
       tft4.setTextSize(1);
-      tft4.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
+      tft4.setCursor(10, 220);
+      tft4.print("A");
+      tft4.setCursor(58, 220);
+      tft4.print("D");
+      tft4.setCursor(106, 220);
+      tft4.print("S");
+      tft4.setCursor(148, 220);
+      tft4.print("R");
 
+      // filterVelocity
+      tft4.setFont(&FreeSans12pt7b);
+      tft4.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
       if (panelData[P_filterVel] == 0) {
+        tft4.fillRoundRect(180, 170, 130, 30, 5, ST7735_GREEN);  // Green box for off
+      } else {
+        tft4.fillRoundRect(180, 170, 130, 30, 5, ST7735_RED);  // Red box for on
+      }
+      tft4.setCursor(210, 178);
+      tft4.print(panelData[P_filterVel] == 0 ? "Vel Off" : "Vel On");
+
+      // filterEGInv
+      if (panelData[P_filterEGinv] == 0) {
         tft4.fillRoundRect(10, 10, 130, 30, 5, ST7735_GREEN);  // Green box for off
       } else {
         tft4.fillRoundRect(10, 10, 130, 30, 5, ST7735_RED);  // Red box for on
       }
-      
       tft4.setCursor(30, 18);
-      tft4.print(panelData[P_filterVel] == 0 ? "Vel Off" : "Vel On");
-
-      if (panelData[P_filterEGinv] == 0) {
-        tft4.fillRoundRect(180, 10, 130, 30, 5, ST7735_GREEN);  // Green box for off
-      } else {
-        tft4.fillRoundRect(180, 10, 130, 30, 5, ST7735_RED);  // Red box for on
-      }
-
-      tft4.setCursor(195, 18);
       tft4.print(panelData[P_filterEGinv] == 0 ? "EG Pos" : "Eg Neg");
 
-      if (filterenvLinLogSW == 0) {
-        tft4.fillRoundRect(10, 50, 130, 30, 5, ST7735_GREEN);  // Green box for off
+      // filterLinLog
+      if (!panelData[P_filterLogLin]) {
+        tft4.fillRoundRect(180, 90, 130, 30, 5, ST7735_GREEN);  // Green box for off
       } else {
-        tft4.fillRoundRect(10, 50, 130, 30, 5, ST7735_RED);  // Red box for on
+        tft4.fillRoundRect(180, 90, 130, 30, 5, ST7735_RED);  // Red box for on
       }
+      tft4.setCursor(210, 98);
+      tft4.print(panelData[P_filterLogLin] == 0 ? "Env Lin" : "Env Log");
 
-      tft4.setCursor(30, 58);
-      tft4.print(filterenvLinLogSW == 0 ? "Env Lin" : "Env Log");
-
-      tft4.fillRoundRect(180, 50, 130, 30, 5, ST7735_YELLOW);  // Green box for off
-      tft4.setCursor(195, 58);
+      // filterLoop
+      tft4.fillRoundRect(180, 10, 130, 30, 5, ST7735_YELLOW);  // Green box for off
+      tft4.setCursor(195, 18);
       switch (panelData[P_filterLoop]) {
         case 0:
-          tft4.setCursor(195, 58);
+          tft4.setCursor(195, 18);
           tft4.print("Loop Off");
           break;
         case 1:
-          tft4.setCursor(183, 58);
+          tft4.setCursor(183, 18);
           tft4.print("Loop Gated");
           break;
         case 2:
-          tft4.setCursor(195, 58);
+          tft4.setCursor(195, 18);
           tft4.print("Loop LFO");
           break;
       }
 
-      // Fill the ADSR envelope with triangles
-      for (int i = 0; i < 4; i++) {
-        fillTriangle(pointsX[i], pointsY[i], pointsX[i + 1], pointsY[i + 1], pointsX[i + 1], screenHeight + offsetY, ST7735_YELLOW);
-        fillTriangle(pointsX[i], pointsY[i], pointsX[i], screenHeight + offsetY, pointsX[i + 1], screenHeight + offsetY, ST7735_YELLOW);
-      }
-
-      // Draw the ADSR envelope with thicker lines
-      for (int i = 0; i < 4; i++) {
-        tft4.drawLine(pointsX[i], pointsY[i], pointsX[i + 1], pointsY[i + 1], ST7735_YELLOW);
-        tft4.drawLine(pointsX[i], pointsY[i] + 1, pointsX[i + 1], pointsY[i + 1] + 1, ST7735_YELLOW);
-        tft4.drawLine(pointsX[i], pointsY[i] - 1, pointsX[i + 1], pointsY[i + 1] - 1, ST7735_YELLOW);
-      }
+      // Drawing the bars
+      drawBar4(6, panelData[P_filterAttack], NUM_STEPS, STEP_HEIGHT);
+      drawBar4(52, panelData[P_filterDecay], NUM_STEPS, STEP_HEIGHT);
+      drawBar4(98, panelData[P_filterSustain], NUM_STEPS, STEP_HEIGHT);
+      drawBar4(144, panelData[P_filterRelease], NUM_STEPS, STEP_HEIGHT);
 
       break;
 
     case 5:  // amp ADSR
       // ************************ DISPLAY 5 **************************
-
       tft5.fillScreen(ST7735_BLACK);
+      tft5.setFont(&FreeSans9pt7b);
+      tft5.setTextColor(ST7735_WHITE);
+      tft5.setTextSize(1);
+      tft5.setCursor(10, 220);
+      tft5.print("A");
+      tft5.setCursor(58, 220);
+      tft5.print("D");
+      tft5.setCursor(106, 220);
+      tft5.print("S");
+      tft5.setCursor(148, 220);
+      tft5.print("R");
       tft5.setFont(&FreeSans12pt7b);
       tft5.setTextSize(1);
       tft5.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
 
-      if (panelData[P_vcaVel] == 0) {
+      if (!panelData[P_vcaVel]) {
+        tft5.fillRoundRect(180, 170, 130, 30, 5, ST7735_GREEN);  // Green box for off
+      } else {
+        tft5.fillRoundRect(180, 170, 130, 30, 5, ST7735_RED);  // Red box for on
+      }
+      tft5.setCursor(210, 178);
+      tft5.print(panelData[P_filterVel] == 0 ? "Vel Off" : "Vel On");
+
+      if (panelData[P_vcaGate] == 0) {
         tft5.fillRoundRect(10, 10, 130, 30, 5, ST7735_GREEN);  // Green box for off
       } else {
         tft5.fillRoundRect(10, 10, 130, 30, 5, ST7735_RED);  // Red box for on
       }
-      tft5.setCursor(30, 18);
-      tft5.print(panelData[P_filterVel] == 0 ? "Vel Off" : "Vel On");
-
-      if (panelData[P_vcaGate] == 0) {
-        tft5.fillRoundRect(180, 10, 130, 30, 5, ST7735_GREEN);  // Green box for off
-      } else {
-        tft5.fillRoundRect(180, 10, 130, 30, 5, ST7735_RED);  // Red box for on
-      }
       tft5.setCursor(195, 18);
       tft5.print(panelData[P_vcaGate] == 0 ? "Gate Off" : "Gate On");
 
-      if (ampenvLinLogSW == 0) {
-        tft5.fillRoundRect(10, 50, 130, 30, 5, ST7735_GREEN);  // Green box for off
+      if (!panelData[P_ampLogLin]) {
+        tft5.fillRoundRect(180, 90, 130, 30, 5, ST7735_GREEN);  // Green box for off
       } else {
-        tft5.fillRoundRect(10, 50, 130, 30, 5, ST7735_RED);  // Red box for on
+        tft5.fillRoundRect(180, 90, 130, 30, 5, ST7735_RED);  // Red box for on
       }
-      tft5.setCursor(30, 58);
-      tft5.print(filterenvLinLogSW == 0 ? "Env Lin" : "Env Log");
+      tft5.setCursor(210, 98);
+      tft5.print(panelData[P_ampLogLin] == 0 ? "Env Lin" : "Env Log");
 
 
-      tft5.fillRoundRect(180, 50, 130, 30, 5, ST7735_YELLOW);  // Green box for off
-      tft5.setCursor(195, 58);
+      tft5.fillRoundRect(180, 10, 130, 30, 5, ST7735_YELLOW);  // Green box for off
       switch (panelData[P_vcaLoop]) {
         case 0:
-          tft5.setCursor(195, 58);
+          tft5.setCursor(195, 18);
           tft5.print("Loop Off");
           break;
         case 1:
-          tft5.setCursor(183, 58);
+          tft5.setCursor(183, 18);
           tft5.print("Loop Gated");
           break;
         case 2:
-          tft5.setCursor(195, 58);
+          tft5.setCursor(195, 18);
           tft5.print("Loop LFO");
           break;
       }
 
-      // Fill the ADSR envelope with triangles
-      for (int i = 0; i < 4; i++) {
-        fillTriangle(AmppointsX[i], AmppointsY[i], AmppointsX[i + 1], AmppointsY[i + 1], AmppointsX[i + 1], screenHeight + offsetY, ST7735_YELLOW);
-        fillTriangle(AmppointsX[i], AmppointsY[i], AmppointsX[i], screenHeight + offsetY, AmppointsX[i + 1], screenHeight + offsetY, ST7735_YELLOW);
-      }
-
-      // Draw the ADSR envelope with thicker lines
-      for (int i = 0; i < 4; i++) {
-        tft5.drawLine(AmppointsX[i], AmppointsY[i], AmppointsX[i + 1], AmppointsY[i + 1], ST7735_YELLOW);
-        tft5.drawLine(AmppointsX[i], AmppointsY[i] + 1, AmppointsX[i + 1], AmppointsY[i + 1] + 1, ST7735_YELLOW);
-        tft5.drawLine(AmppointsX[i], AmppointsY[i] - 1, AmppointsX[i + 1], AmppointsY[i + 1] - 1, ST7735_YELLOW);
-      }
+      // Drawing the bars
+      drawBar5(6, panelData[P_ampAttack], NUM_STEPS, STEP_HEIGHT);
+      drawBar5(52, panelData[P_ampDecay], NUM_STEPS, STEP_HEIGHT);
+      drawBar5(98, panelData[P_ampSustain], NUM_STEPS, STEP_HEIGHT);
+      drawBar5(144, panelData[P_ampRelease], NUM_STEPS, STEP_HEIGHT);
 
       break;
 
@@ -671,13 +676,13 @@ void renderCurrentPatchPage(int parameter) {
       tft6.setTextSize(1);
 
       // Setting text labels at the bottom of each bar
-      tft6.setCursor(4, 220);
+      tft6.setCursor(0, 220);
       tft6.print("LFO");
-      tft6.setCursor(48, 220);
+      tft6.setCursor(50, 220);
       tft6.print("Dly");
       tft6.setCursor(96, 220);
       tft6.print("PW");
-      tft6.setCursor(142, 220);
+      tft6.setCursor(140, 220);
       tft6.print("MW");
 
       tft6.setFont(&FreeSans12pt7b);
@@ -719,7 +724,7 @@ void renderCurrentPatchPage(int parameter) {
       tft6.setCursor(40, 18);
       tft6.print(lfoDisplay);
 
-      if (panelData[P_lfoAlt] == 1) {
+      if (panelData[P_lfoAlt]) {
         tft6.fillRoundRect(180, 50, 130, 30, 5, ST7735_RED);
       } else {
         tft6.fillRoundRect(180, 50, 130, 30, 5, ST7735_GREEN);
@@ -737,41 +742,49 @@ void renderCurrentPatchPage(int parameter) {
       break;
 
     case 7:  // Effects
-             // ************************ DISPLAY 7 **************************
-      tft7.setFont(&FreeSans12pt7b);
-      tft7.fillScreen(ST7735_BLACK);
-      tft7.setCursor(0, 5);
-      tft7.setTextSize(3);
-      tft7.setTextColor(ST7735_YELLOW);
-      tft7.println(currentPgmNum);
-      tft7.setCursor(80, 15);
+      // ************************ DISPLAY 7 **************************
+      tft7.fillScreen(ST7735_BLACK);  // Fill the screen with black
       tft7.setFont(&FreeSans9pt7b);
-      tft7.setTextSize(2);
       tft7.setTextColor(ST7735_WHITE);
-      tft7.println(currentPatchName);
-      tft7.setFont(&FreeSans12pt7b);
       tft7.setTextSize(1);
-      tft7.drawFastHLine(0, 58, tft7.width(), ST7735_RED);
-      tft7.setCursor(0, 70);  //effect mix
-      tft7.print("Effect:");
-      tft7.setCursor(80, 70);
-      tft7.setTextColor(ST7735_YELLOW);
-      char buf1[30];  // first word of effect name
-      switch (effectBankSW) {
+
+      // Setting text labels at the bottom of each bar
+      tft7.setCursor(6, 220);
+      tft7.print("P1");
+      tft7.setCursor(50, 220);
+      tft7.print("P2");
+      tft7.setCursor(98, 220);
+      tft7.print("P3");
+      tft7.setCursor(142, 220);
+      tft7.print("Mix");
+
+      tft7.drawFastVLine(156, 50, 155, ST7735_RED);
+      tft7.drawFastHLine(144, 50, 24, ST7735_RED);
+      tft7.drawFastHLine(144, 127, 24, ST7735_RED);
+      tft7.drawFastHLine(144, 205, 24, ST7735_RED);
+
+      drawBar7(6, panelData[P_effectPot1], NUM_STEPS, STEP_HEIGHT);
+      drawBar7(52, panelData[P_effectPot2], NUM_STEPS, STEP_HEIGHT);
+      drawBar7(98, panelData[P_effectPot3], NUM_STEPS, STEP_HEIGHT);
+      drawPWIndicator7(144, panelData[P_effectsMix]);
+
+      tft7.setFont(&FreeSans12pt7b);
+      tft7.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
+
+      switch (panelData[P_effectBank]) {
         case 0:
-          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name01[effectNumSW])));
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name01[panelData[P_effectNum]])));
           break;
         case 1:
-          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name11[effectNumSW])));
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name11[panelData[P_effectNum]])));
           break;
         case 2:
-          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name21[effectNumSW])));
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name21[panelData[P_effectNum]])));
           break;
         case 3:
-          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name31[effectNumSW])));
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name31[panelData[P_effectNum]])));
           break;
       }
-
       // Check if the pointer is valid
       if (str_ptr != nullptr) {
         // Copy the string from program memory to RAM
@@ -779,26 +792,21 @@ void renderCurrentPatchPage(int parameter) {
       } else {
         // Handle the case where the pointer is NULL (if needed)
       }
-      tft7.setTextSize(1);
-      tft7.print(buf1);
-      tft7.print(" ");
 
-      char buf2[30];  // second word of effect name
-      switch (effectBankSW) {
+      switch (panelData[P_effectBank]) {
         case 0:
-          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name02[effectNumSW])));
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name02[panelData[P_effectNum]])));
           break;
         case 1:
-          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name12[effectNumSW])));
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name12[panelData[P_effectNum]])));
           break;
         case 2:
-          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name22[effectNumSW])));
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name22[panelData[P_effectNum]])));
           break;
         case 3:
-          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name32[effectNumSW])));
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name32[panelData[P_effectNum]])));
           break;
       }
-
       // Check if the pointer is valid
       if (str_ptr != nullptr) {
         // Copy the string from program memory to RAM
@@ -806,34 +814,19 @@ void renderCurrentPatchPage(int parameter) {
       } else {
         // Handle the case where the pointer is NULL (if needed)
       }
-      tft7.print(buf2);
-      tft7.setTextSize(1);
-      tft7.setTextColor(ST7735_WHITE);
-      tft7.setCursor(0, 100);
-      tft7.print("Bank:");
-      tft7.setCursor(160, 100);
-      tft7.print("Number:");
-      tft7.setTextColor(ST7735_YELLOW);
-      tft7.setCursor(270, 100);
-      tft7.print(effectNumSW + 1);
-      tft7.setCursor(80, 100);
-      tft7.print(effectBankSW + 1);
-      tft7.setTextColor(ST7735_WHITE);
 
-      tft7.setCursor(0, 130);  //effect param1
-      char buf3[30];
-      switch (effectBankSW) {
+      switch (panelData[P_effectBank]) {
         case 0:
-          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name03[effectNumSW])));
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name03[panelData[P_effectNum]])));
           break;
         case 1:
-          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name13[effectNumSW])));
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name13[panelData[P_effectNum]])));
           break;
         case 2:
-          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name23[effectNumSW])));
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name23[panelData[P_effectNum]])));
           break;
         case 3:
-          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name33[effectNumSW])));
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name33[panelData[P_effectNum]])));
           break;
       }
 
@@ -844,22 +837,19 @@ void renderCurrentPatchPage(int parameter) {
       } else {
         // Handle the case where the pointer is NULL (if needed)
       }
-      tft7.print(buf3);
 
-      tft7.setCursor(0, 160);  //effect param2
-      char buf4[30];
-      switch (effectBankSW) {
+      switch (panelData[P_effectBank]) {
         case 0:
-          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name04[effectNumSW])));
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name04[panelData[P_effectNum]])));
           break;
         case 1:
-          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name14[effectNumSW])));
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name14[panelData[P_effectNum]])));
           break;
         case 2:
-          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name24[effectNumSW])));
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name24[panelData[P_effectNum]])));
           break;
         case 3:
-          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name34[effectNumSW])));
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name34[panelData[P_effectNum]])));
           break;
       }
       // Check if the pointer is valid
@@ -869,22 +859,19 @@ void renderCurrentPatchPage(int parameter) {
       } else {
         // Handle the case where the pointer is NULL (if needed)
       }
-      tft7.print(buf4);
 
-      tft7.setCursor(0, 190);  //effect param3
-      char buf5[30];
-      switch (effectBankSW) {
+      switch (panelData[P_effectBank]) {
         case 0:
-          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name05[effectNumSW])));
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name05[panelData[P_effectNum]])));
           break;
         case 1:
-          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name15[effectNumSW])));
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name15[panelData[P_effectNum]])));
           break;
         case 2:
-          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name25[effectNumSW])));
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name25[panelData[P_effectNum]])));
           break;
         case 3:
-          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name35[effectNumSW])));
+          str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(name35[panelData[P_effectNum]])));
           break;
       }
       // Check if the pointer is valid
@@ -894,53 +881,82 @@ void renderCurrentPatchPage(int parameter) {
       } else {
         // Handle the case where the pointer is NULL (if needed)
       }
-      tft7.print(buf5);
-      tft7.setCursor(0, 220);  //effect mix
-      tft7.print("Effects Mix");
-      tft7.drawFastHLine(160, 226, 160, ST7735_RED);
-      tft7.drawFastVLine(160, 220, 12, ST7735_RED);
-      tft7.drawFastVLine(240, 220, 12, ST7735_RED);
-      tft7.drawFastVLine(319, 220, 12, ST7735_RED);
-      tft7.fillRoundRect(160, 128, int(panelData[P_effectPot1] / 6.5), 16, 2, ST7735_YELLOW);
-      tft7.fillRoundRect(160, 158, int(panelData[P_effectPot2] / 6.5), 16, 2, ST7735_YELLOW);
-      tft7.fillRoundRect(160, 188, int(panelData[P_effectPot3] / 6.5), 16, 2, ST7735_YELLOW);
-      tft7.fillRoundRect((int(panelData[P_effectsMix] / 6.7) + 160), 218, 8, 16, 2, ST7735_YELLOW);
+
+      tft7.fillRoundRect(10, 10, 200, 30, 5, ST7735_YELLOW); 
+      tft7.setCursor(20, 18);
+      tft7.print(buf1);
+      tft7.setCursor(128, 18);
+      tft7.print(buf2);
+
+      tft7.fillRoundRect(240, 10, 70, 30, 5, ST7735_YELLOW);  // Green box for off
+      tft7.setCursor(266, 18);
+      tft7.print(panelData[P_effectBank] + 1);
 
       break;
 
     case 8:  // PolyMOD
       // ************************ DISPLAY 8 **************************
-      tft8.setFont(&FreeSans12pt7b);
-      tft8.fillScreen(ST7735_BLACK);
-      tft8.setCursor(0, 5);
-      tft8.setTextSize(3);
-      tft8.setTextColor(ST7735_YELLOW);
-      tft8.println(currentPgmNum);
-      tft8.setCursor(80, 15);
+      tft8.fillScreen(ST7735_BLACK);  // Fill the screen with black
       tft8.setFont(&FreeSans9pt7b);
-      tft8.setTextSize(2);
       tft8.setTextColor(ST7735_WHITE);
-      tft8.println(currentPatchName);
-      tft8.setFont(&FreeSans12pt7b);
       tft8.setTextSize(1);
-      tft8.drawFastHLine(0, 58, tft8.width(), ST7735_RED);
-      tft8.setTextColor(ST7735_WHITE);
 
-      tft8.setCursor(0, 70);
-      tft8.print("Volume");
-      tft8.setCursor(0, 100);
-      tft8.print("AM Depth");
-      tft8.setCursor(0, 130);
-      tft8.print("Noise Level");
-      tft8.setTextColor(ST7735_RED);
+      // Setting text labels at the bottom of each bar
+      tft8.setCursor(0, 220);
+      tft8.print("DCO");
+      tft8.setCursor(48, 220);
+      tft8.print("Env");
+      tft8.setCursor(96, 220);
+      tft8.print("Vol");
+      tft8.setCursor(142, 220);
+      tft8.print("AM");
+      tft8.setCursor(142, 220);
+      tft8.print("AM");
+      tft8.setCursor(184, 220);
+      tft8.print("Noise");
 
-      tft8.drawFastHLine(160, 136, 160, ST7735_RED);
-      tft8.drawFastVLine(160, 130, 12, ST7735_RED);
-      tft8.drawFastVLine(240, 130, 12, ST7735_RED);
-      tft8.drawFastVLine(319, 130, 12, ST7735_RED);
-      tft8.fillRoundRect(160, 68, int(panelData[P_volumeControl] / 6.5), 16, 2, ST7735_YELLOW);
-      tft8.fillRoundRect(160, 98, int(panelData[P_amDepth] / 6.5), 16, 2, ST7735_YELLOW);
-      tft8.fillRoundRect((int(panelData[P_noiseLevel] / 6.7) + 160), 128, 8, 16, 2, ST7735_YELLOW);
+      tft8.drawFastVLine(204, 50, 155, ST7735_RED);
+      tft8.drawFastHLine(192, 50, 24, ST7735_RED);
+      tft8.drawFastHLine(192, 127, 24, ST7735_RED);
+      tft8.drawFastHLine(192, 205, 24, ST7735_RED);
+
+      drawBar8(6, panelData[P_pmDCO2], NUM_STEPS, STEP_HEIGHT);
+      drawBar8(52, panelData[P_pmFilterEnv], NUM_STEPS, STEP_HEIGHT);
+      drawBar8(98, panelData[P_volumeControl], NUM_STEPS, STEP_HEIGHT);
+      drawBar8(144, panelData[P_amDepth], NUM_STEPS, STEP_HEIGHT);
+      drawPWIndicator8(192, panelData[P_noiseLevel]);
+
+      // tft8.setFont(&FreeSans12pt7b);
+      // tft8.fillScreen(ST7735_BLACK);
+      // tft8.setCursor(0, 5);
+      // tft8.setTextSize(3);
+      // tft8.setTextColor(ST7735_YELLOW);
+      // tft8.println(currentPgmNum);
+      // tft8.setCursor(80, 15);
+      // tft8.setFont(&FreeSans9pt7b);
+      // tft8.setTextSize(2);
+      // tft8.setTextColor(ST7735_WHITE);
+      // tft8.println(currentPatchName);
+      // tft8.setFont(&FreeSans12pt7b);
+      // tft8.setTextSize(1);
+      // tft8.drawFastHLine(0, 58, tft8.width(), ST7735_RED);
+      // tft8.setTextColor(ST7735_WHITE);
+
+      // tft8.setCursor(0, 70);
+      // tft8.print("Volume");
+      // tft8.setCursor(0, 100);
+      // tft8.print("AM Depth");
+      // tft8.setCursor(0, 130);
+      // tft8.print("Noise Level");
+      // tft8.setTextColor(ST7735_RED);
+
+      // tft8.drawFastHLine(160, 136, 160, ST7735_RED);
+      // tft8.drawFastVLine(160, 130, 12, ST7735_RED);
+      // tft8.drawFastVLine(240, 130, 12, ST7735_RED);
+      // tft8.drawFastVLine(319, 130, 12, ST7735_RED);
+      // tft8.fillRoundRect(160, 68, int(panelData[P_volumeControl] / 6.5), 16, 2, ST7735_YELLOW);
+      // tft8.fillRoundRect(160, 98, int(panelData[P_amDepth] / 6.5), 16, 2, ST7735_YELLOW);
+      // tft8.fillRoundRect((int(panelData[P_noiseLevel] / 6.7) + 160), 128, 8, 16, 2, ST7735_YELLOW);
 
       break;
   }

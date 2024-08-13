@@ -1,36 +1,25 @@
-const int sysexDataLength = 72;
+const int sysexDataLength = 142;
 byte receivedSysExData[sysexDataLength];
 bool isSysExProcessing = false;  // Flag to indicate SysEx processing state
 unsigned long lastSysExByteTime = 0;
 const unsigned long sysExTimeout = 100; // Timeout for SysEx processing (in milliseconds)
 
+int i2cByteNumber = 0;
+
 unsigned long timerStart = 0;
 bool timerRunning = false;
 const unsigned long timerDuration = 500; // 500 milliseconds
 
-const int slaveAddress = 8;  // I2C address of the Slave
-
 int maxSectionWidth = 0;
-int attackX = 0;
-int decayX = 0;
-int sustainLevel = 0;
-int sustainX = 0;
-int releaseX = 0;
-int offsetY = 98;
-int pointsX[6];
-int pointsY[6];
-int AmpattackX = 0;
-int AmpdecayX = 0;
-int AmpsustainLevel = 0;
-int AmpsustainX = 0;
-int AmpreleaseX = 0;
-int AmppointsX[6];
-int AmppointsY[6];
 
 char filterDisplay[30];
 char lfoDisplay[30];
+char buf1[30];
+char buf2[30];
+char buf3[30];
+char buf4[30];
+char buf5[30];
 
-int keyboardMode = 0;
 int playMode = 0;
 int readRes = 1023;
 int parameterGroup = 0;
@@ -51,14 +40,11 @@ int FilterLoop = 0;
 int AmpLoop = 0;
 int ClockSource = 0;
 int chordHoldSW = 0;
-boolean upperSW = false;
-boolean lowerSW = true;
-boolean syncSW = false;
+int upperSW = 0;
+int lowerSW = 1;
 boolean filterenvLinLogSW = false;
 boolean ampenvLinLogSW = false;
 int lfoMult = 0;
-int effectBankSW = 0;
-int effectNumSW = 0;
 boolean pmDestDCO1SW = false;
 boolean pmDestFilterSW = false;
 boolean monoMultiSW = false;
@@ -71,6 +57,7 @@ int upperData[70];
 int lowerData[70];
 int panelData[70];
 
+#define P_sysex 0
 #define P_pwLFO 1
 #define P_fmDepth 2
 #define P_osc2PW 3
@@ -135,5 +122,7 @@ int panelData[70];
 #define P_ampLogLin 62
 #define P_osc2TriangleLevel 63
 #define P_osc1SubLevel 64
-#define P_keyTrackSW 65
+#define P_keyboardMode 65
 #define P_LFODelay 66
+#define P_effectNum 67
+#define P_effectBank 68
