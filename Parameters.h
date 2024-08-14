@@ -1,4 +1,4 @@
-const int sysexDataLength = 142;
+const int sysexDataLength = 154;
 byte receivedSysExData[sysexDataLength];
 bool isSysExProcessing = false;  // Flag to indicate SysEx processing state
 unsigned long lastSysExByteTime = 0;
@@ -34,20 +34,18 @@ boolean recallPatchFlag = false;
 int setCursorPos = 0;
 
 String patchName = INITPATCHNAME;
-int lfoMult = 0;
+
 int NotePriority = 0;
 int ClockSource = 0;
 int chordHoldSW = 0;
 int upperSW = 0;
 int lowerSW = 1;
-boolean pmDestDCO1SW = false;
-boolean pmDestFilterSW = false;
 
 int returnvalue = 0;
 
-int upperData[70];
-int lowerData[70];
-int panelData[70];
+int upperData[76];
+int lowerData[76];
+int panelData[76];
 
 #define P_sysex 0
 #define P_pwLFO 1
@@ -118,3 +116,7 @@ int panelData[70];
 #define P_LFODelay 66
 #define P_effectNum 67
 #define P_effectBank 68
+#define P_pmDestDCO1 69
+#define P_pmDestFilter 70
+#define P_lfoMultiplier 71
+#define P_NotePriority 72

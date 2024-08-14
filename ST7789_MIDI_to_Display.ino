@@ -293,7 +293,7 @@ void setup() {
 void receiveEvent(int howMany) {
   static int i2cByteNumber = 0;  // Keep track of where to store incoming data
 
-  while (Wire2.available() >= 2 && i2cByteNumber < 70) {  // Ensure at least two bytes are available and we have space
+  while (Wire2.available() >= 2 && i2cByteNumber < 76) {  // Ensure at least two bytes are available and we have space
     uint8_t highByte = Wire2.read();                      // Read the high byte
     uint8_t lowByte = Wire2.read();                       // Read the low byte
 
@@ -302,7 +302,7 @@ void receiveEvent(int howMany) {
   }
 
   // Check if all expected data has been received
-  if (i2cByteNumber >= 70) {
+  if (i2cByteNumber >= 76) {
 
     if (panelData[P_sysex]) {
       memcpy(upperData, panelData, sizeof(panelData));
@@ -517,10 +517,43 @@ void myLEDupdate(byte channel, byte control, int value) {
       } else {
         tft2.fillRoundRect(10, 10, 130, 30, 5, ST7735_GREEN);
       }
-      tft2.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
       tft2.setCursor(30, 18);
       tft2.print(panelData[P_sync] == 0 ? "Sync Off" : "Sync On");
       tft2.updateScreen();
+      break;
+
+    case CCpmDestDCO1SW:
+      panelData[P_pmDestDCO1] = value;
+      if (panelData[P_pmDestDCO1]) {
+        srp.set(PM_DCO1_DEST_LED, HIGH);
+      } else if (!panelData[P_pmDestDCO1]) {
+        srp.set(PM_DCO1_DEST_LED, LOW);
+      }
+      if (panelData[P_pmDestDCO1]) {
+        tft8.fillRoundRect(10, 10, 130, 30, 5, ST7735_RED);
+      } else {
+        tft8.fillRoundRect(10, 10, 130, 30, 5, ST7735_GREEN);
+      }
+      tft8.setCursor(20, 18);
+      tft8.print(panelData[P_pmDestDCO1] == 0 ? "DCO1 Off" : "DCO1 On");
+      tft8.updateScreen();
+      break;
+
+    case CCpmDestFilterSW:
+      panelData[P_pmDestFilter] = value;
+      if (panelData[P_pmDestFilter]) {
+        srp.set(PM_FILT_ENV_DEST_LED, HIGH);
+      } else if (!panelData[P_pmDestFilter]) {
+        srp.set(PM_FILT_ENV_DEST_LED, LOW);
+      }
+      if (panelData[P_pmDestFilter]) {
+        tft8.fillRoundRect(180, 10, 130, 30, 5, ST7735_RED);
+      } else {
+        tft8.fillRoundRect(180, 10, 130, 30, 5, ST7735_GREEN);
+      }
+      tft8.setCursor(200, 18);
+      tft8.print(panelData[P_pmDestFilter] == 0 ? "Filter Off" : "Filter On");
+      tft8.updateScreen();
       break;
 
     case CClfoAlt:
@@ -536,7 +569,7 @@ void myLEDupdate(byte channel, byte control, int value) {
         tft6.fillRoundRect(180, 50, 130, 30, 5, ST7735_GREEN);
       }
       tft6.setTextColor(ST7735_BLACK);  // Change text color to black for better contrast
-      tft6.setCursor(195, 58);
+      tft6.setCursor(200, 58);
       tft6.print(panelData[P_lfoAlt] == 0 ? "Alt Off" : "Alt On");
       tft6.updateScreen();
       break;
@@ -618,6 +651,37 @@ void myLEDupdate(byte channel, byte control, int value) {
       tft2.updateScreen();
       break;
 
+    case CCNotePriority:
+      panelData[P_NotePriority] = value;
+      tft0.fillRoundRect(50, 130, 120, 30, 5, ST7735_CYAN);  // Cyan box
+      tft0.setCursor(60, 138);
+      tft0.print("Priority");
+      tft0.fillRoundRect(180, 130, 130, 30, 5, ST7735_YELLOW);  // Yellow box
+      switch (panelData[P_NotePriority]) {
+        case 0:
+          srp.set(PRIORITY_RED_LED, HIGH);
+          srp.set(PRIORITY_GREEN_LED, LOW);
+          tft0.setCursor(195, 138);
+          tft0.print("Top");
+          break;
+
+        case 1:
+          srp.set(PRIORITY_RED_LED, LOW);
+          srp.set(PRIORITY_GREEN_LED, HIGH);
+          tft0.setCursor(195, 138);
+          tft0.print("Bottom");
+          break;
+
+        case 2:
+          srp.set(PRIORITY_RED_LED, HIGH);
+          srp.set(PRIORITY_GREEN_LED, HIGH);
+          tft0.setCursor(195, 138);
+          tft0.print("Last");
+          break;
+      }
+      tft0.updateScreen();
+      break;
+
     case CCplayMode:
       playMode = value;
       tft0.fillRoundRect(50, 170, 120, 30, 5, ST7735_CYAN);  // Cyan box
@@ -647,6 +711,32 @@ void myLEDupdate(byte channel, byte control, int value) {
           break;
       }
       tft0.updateScreen();
+      break;
+
+    case CClfoMult:
+      panelData[P_lfoMultiplier] = value;
+      tft6.fillRoundRect(180, 130, 130, 30, 5, ST7735_YELLOW);  // Background box for range
+      tft6.setCursor(200, 138);
+      tft6.print("Mult");
+      tft6.setCursor(260, 138);
+      switch (panelData[P_lfoMultiplier]) {
+        case 0:
+          tft6.print("x0.5");
+          break;
+        case 1:
+          tft6.print("x1.0");
+          break;
+        case 2:
+          tft6.print("x1.5");
+          break;
+        case 3:
+          tft6.print("x2.0");
+          break;
+        case 4:
+          tft6.print("x2.5");
+          break;
+      }
+      tft6.updateScreen();
       break;
 
     case CCeffectNumSW:
@@ -1019,7 +1109,7 @@ void myLEDupdate(byte channel, byte control, int value) {
         srp.set(LFO_MULTI_MONO_LED, LOW);
         tft6.fillRoundRect(180, 90, 130, 30, 5, ST7735_GREEN);
       }
-      tft6.setCursor(195, 98);
+      tft6.setCursor(200, 98);
       tft6.print(panelData[P_monoMulti] == 0 ? "Trig Off" : "Trig On");
       tft6.updateScreen();
       break;
@@ -1092,16 +1182,29 @@ void myLEDupdate(byte channel, byte control, int value) {
 
     case CCvcaGate:
       panelData[P_vcaGate] = value;
-
       if (panelData[P_vcaGate] == 0) {
         srp.set(AMP_GATED_LED, LOW);
+        panelData[P_ampAttack] = panelData[P_oldampAttack];
+        panelData[P_ampDecay] = panelData[P_oldampDecay];
+        panelData[P_ampSustain] = panelData[P_oldampSustain];
+        panelData[P_ampRelease] = panelData[P_oldampRelease];
         tft5.fillRoundRect(10, 10, 130, 30, 5, ST7735_GREEN);  // Green box for off
       } else {
         srp.set(AMP_GATED_LED, HIGH);
+        panelData[P_ampAttack] = 0;
+        panelData[P_ampDecay] = 0;
+        panelData[P_ampSustain] = 1023;
+        panelData[P_ampRelease] = 0;
         tft5.fillRoundRect(10, 10, 130, 30, 5, ST7735_RED);  // Red box for on
       }
       tft5.setCursor(30, 18);
       tft5.print(panelData[P_vcaGate] == 0 ? "Gate Off" : "Gate On");
+
+      drawBar5(6, panelData[P_ampAttack], NUM_STEPS, STEP_HEIGHT);
+      drawBar5(52, panelData[P_ampDecay], NUM_STEPS, STEP_HEIGHT);
+      drawBar5(98, panelData[P_ampSustain], NUM_STEPS, STEP_HEIGHT);
+      drawBar5(144, panelData[P_ampRelease], NUM_STEPS, STEP_HEIGHT);
+
       tft5.updateScreen();
       break;
 
@@ -1492,9 +1595,9 @@ void onSysExMessage(byte *data, unsigned length) {
       // Serial.print(" ");
       panelData[i - 2] = (uint16_t)(highByte << 8) | lowByte;
       if (panelData[0] == 0) {
-        memcpy(lowerData, panelData, 70);
+        memcpy(lowerData, panelData, 76);
       } else {
-        memcpy(upperData, panelData, 70);
+        memcpy(upperData, panelData, 76);
       }
     }
     //Serial.println(" ");
@@ -1554,6 +1657,23 @@ void updateLEDs() {
       srp.set(POLY2_LED, LOW);
       srp.set(UNISON_LED, LOW);
       srp.set(MONO_LED, HIGH);
+      break;
+  }
+
+  switch (panelData[P_NotePriority]) {
+    case 0:
+      srp.set(PRIORITY_RED_LED, HIGH);
+      srp.set(PRIORITY_GREEN_LED, LOW);
+      break;
+
+    case 1:
+      srp.set(PRIORITY_RED_LED, LOW);
+      srp.set(PRIORITY_GREEN_LED, HIGH);
+      break;
+
+    case 2:
+      srp.set(PRIORITY_RED_LED, HIGH);
+      srp.set(PRIORITY_GREEN_LED, HIGH);
       break;
   }
 
@@ -1648,6 +1768,24 @@ void updateLEDs() {
       break;
     case 1:
       srp.set(AMP_GATED_LED, HIGH);
+      break;
+  }
+
+  switch (panelData[P_pmDestDCO1]) {
+    case 0:
+      srp.set(PM_DCO1_DEST_LED, LOW);
+      break;
+    case 1:
+      srp.set(PM_DCO1_DEST_LED, HIGH);
+      break;
+  }
+
+  switch (panelData[P_pmDestFilter]) {
+    case 0:
+      srp.set(PM_FILT_ENV_DEST_LED, LOW);
+      break;
+    case 1:
+      srp.set(PM_FILT_ENV_DEST_LED, HIGH);
       break;
   }
 }

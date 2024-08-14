@@ -687,23 +687,7 @@ void renderCurrentPatchPage(int parameter) {
 
       tft6.setFont(&FreeSans12pt7b);
       tft6.setTextColor(ST7735_BLACK);
-
-      // Set range label and value inside a box along the top
-      tft6.fillRoundRect(240, 10, 70, 30, 5, ST7735_YELLOW);  // Background box for range
-      
-      tft6.setCursor(260, 18);
-      switch (lfoMult) {
-        case 0:
-          tft6.print("x0.5");
-          break;
-        case 1:
-          tft6.print("x1.0");
-          break;
-        case 2:
-          tft6.print("x1.5");
-          break;
-      }
-
+    
       switch (panelData[P_lfoAlt]) {
         case 0:
           str_ptr = reinterpret_cast<const char *>(pgm_read_ptr(&(lfo02[panelData[P_LFOWaveform]])));
@@ -720,7 +704,7 @@ void renderCurrentPatchPage(int parameter) {
       tft6.setFont(&FreeSans12pt7b);
 
       // Set range label and value inside a box along the top
-      tft6.fillRoundRect(10, 10, 200, 30, 5, ST7735_YELLOW);  // Background box for range
+      tft6.fillRoundRect(10, 10, 300, 30, 5, ST7735_YELLOW);  // Background box for range
       tft6.setCursor(40, 18);
       tft6.print(lfoDisplay);
 
@@ -729,7 +713,7 @@ void renderCurrentPatchPage(int parameter) {
       } else {
         tft6.fillRoundRect(180, 50, 130, 30, 5, ST7735_GREEN);
       }
-      tft6.setCursor(195, 58);
+      tft6.setCursor(200, 58);
       tft6.print(panelData[P_lfoAlt] == 0 ? "Alt Off" : "Alt On");
 
       if (panelData[P_monoMulti]) {
@@ -737,8 +721,31 @@ void renderCurrentPatchPage(int parameter) {
       } else {
         tft6.fillRoundRect(180, 90, 130, 30, 5, ST7735_GREEN);
       }
-      tft6.setCursor(195, 98);
+      tft6.setCursor(200, 98);
       tft6.print(panelData[P_monoMulti] == 0 ? "Trig Off" : "Trig On");
+
+      // Set range label and value inside a box along the top
+      tft6.fillRoundRect(180, 130, 130, 30, 5, ST7735_YELLOW);  // Background box for range
+      tft6.setCursor(200, 138);
+      tft6.print("Mult");
+      tft6.setCursor(260, 138);
+      switch (panelData[P_lfoMultiplier]) {
+        case 0:
+          tft6.print("x0.5");
+          break;
+        case 1:
+          tft6.print("x1.0");
+          break;
+        case 2:
+          tft6.print("x1.5");
+          break;
+        case 3:
+          tft6.print("x2.0");
+          break;
+        case 4:
+          tft6.print("x2.5");
+          break;
+      }
 
       // Drawing the bars
       drawBar6(6, panelData[P_LFORate], NUM_STEPS, STEP_HEIGHT);
@@ -952,6 +959,35 @@ void renderCurrentPatchPage(int parameter) {
       tft8.setCursor(184, 220);
       tft8.print("Noise");
 
+      tft8.setFont(&FreeSans12pt7b);
+      tft8.setTextColor(ST7735_BLACK);
+
+      if (panelData[P_pmDestDCO1]) {
+        srp.set(PM_DCO1_DEST_LED, HIGH);
+      } else if (!panelData[P_pmDestDCO1]) {
+        srp.set(PM_DCO1_DEST_LED, LOW);
+      }
+      if (panelData[P_pmDestDCO1]) {
+        tft8.fillRoundRect(10, 10, 130, 30, 5, ST7735_RED);
+      } else {
+        tft8.fillRoundRect(10, 10, 130, 30, 5, ST7735_GREEN);
+      }
+      tft8.setCursor(20, 18);
+      tft8.print(panelData[P_pmDestDCO1] == 0 ? "DCO1 Off" : "DCO1 On");
+
+      if (panelData[P_pmDestFilter]) {
+        srp.set(PM_FILT_ENV_DEST_LED, HIGH);
+      } else if (!panelData[P_pmDestFilter]) {
+        srp.set(PM_FILT_ENV_DEST_LED, LOW);
+      }
+      if (panelData[P_pmDestFilter]) {
+        tft8.fillRoundRect(180, 10, 130, 30, 5, ST7735_RED);
+      } else {
+        tft8.fillRoundRect(180, 10, 130, 30, 5, ST7735_GREEN);
+      }
+      tft8.setCursor(200, 18);
+      tft8.print(panelData[P_pmDestFilter] == 0 ? "Filter Off" : "Filter On");
+
       tft8.drawFastVLine(204, 50, 155, ST7735_RED);
       tft8.drawFastHLine(192, 50, 24, ST7735_RED);
       tft8.drawFastHLine(192, 127, 24, ST7735_RED);
@@ -962,38 +998,6 @@ void renderCurrentPatchPage(int parameter) {
       drawBar8(98, panelData[P_volumeControl], NUM_STEPS, STEP_HEIGHT);
       drawBar8(144, panelData[P_amDepth], NUM_STEPS, STEP_HEIGHT);
       drawPWIndicator8(192, panelData[P_noiseLevel]);
-
-      // tft8.setFont(&FreeSans12pt7b);
-      // tft8.fillScreen(ST7735_BLACK);
-      // tft8.setCursor(0, 5);
-      // tft8.setTextSize(3);
-      // tft8.setTextColor(ST7735_YELLOW);
-      // tft8.println(currentPgmNum);
-      // tft8.setCursor(80, 15);
-      // tft8.setFont(&FreeSans9pt7b);
-      // tft8.setTextSize(2);
-      // tft8.setTextColor(ST7735_WHITE);
-      // tft8.println(currentPatchName);
-      // tft8.setFont(&FreeSans12pt7b);
-      // tft8.setTextSize(1);
-      // tft8.drawFastHLine(0, 58, tft8.width(), ST7735_RED);
-      // tft8.setTextColor(ST7735_WHITE);
-
-      // tft8.setCursor(0, 70);
-      // tft8.print("Volume");
-      // tft8.setCursor(0, 100);
-      // tft8.print("AM Depth");
-      // tft8.setCursor(0, 130);
-      // tft8.print("Noise Level");
-      // tft8.setTextColor(ST7735_RED);
-
-      // tft8.drawFastHLine(160, 136, 160, ST7735_RED);
-      // tft8.drawFastVLine(160, 130, 12, ST7735_RED);
-      // tft8.drawFastVLine(240, 130, 12, ST7735_RED);
-      // tft8.drawFastVLine(319, 130, 12, ST7735_RED);
-      // tft8.fillRoundRect(160, 68, int(panelData[P_volumeControl] / 6.5), 16, 2, ST7735_YELLOW);
-      // tft8.fillRoundRect(160, 98, int(panelData[P_amDepth] / 6.5), 16, 2, ST7735_YELLOW);
-      // tft8.fillRoundRect((int(panelData[P_noiseLevel] / 6.7) + 160), 128, 8, 16, 2, ST7735_YELLOW);
 
       break;
   }
