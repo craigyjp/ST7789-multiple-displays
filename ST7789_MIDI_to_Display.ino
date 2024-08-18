@@ -1,5 +1,5 @@
 //
-// Version 1.2
+// Version 1.3
 //
 #include <Arduino.h>
 #include <i2c_driver.h>
@@ -269,7 +269,6 @@ void setup() {
   srp.set(KEYBOARD_RED_LED, LOW);
   srp.set(KEYBOARD_GREEN_LED, LOW);
 
-
   renderCurrentPatchPage(0);
   tft0.updateScreen();
   renderCurrentPatchPage(1);
@@ -320,13 +319,17 @@ void receiveEvent(int howMany) {
 void myConvertControlChange(byte channel, byte number, byte value) {
 
   if (channel == 1) {
-    Serial.println("Received on channel 1 at the display");
+    Serial.print("Received on channel 1 at the display ");
+    Serial.println(value);
+
     int newvalue = (value << 3);
     myControlChange(channel, number, newvalue);
   }
 
   if (channel == 2) {
-    Serial.println("Received on channel 2 at the display");
+    Serial.print("Received on channel 2 at the display ");
+    Serial.println(value);
+
     int newvalue = value;
     myLEDupdate(channel, number, newvalue);
   }
@@ -520,6 +523,23 @@ void myLEDupdate(byte channel, byte control, int value) {
       tft2.setCursor(30, 18);
       tft2.print(panelData[P_sync] == 0 ? "Sync Off" : "Sync On");
       tft2.updateScreen();
+      break;
+
+    case CCKeyTrackSW:
+      panelData[P_keytrackSW] = value;
+      if (panelData[P_keytrackSW]) {
+        srp.set(KEYTRACK_LED, HIGH);
+      } else if (!panelData[P_keytrackSW]) {
+        srp.set(KEYTRACK_LED, LOW);
+      }
+      // if (panelData[P_keytrackSW]) {
+      //   tft2.fillRoundRect(10, 10, 130, 30, 5, ST7735_RED);
+      // } else {
+      //   tft2.fillRoundRect(10, 10, 130, 30, 5, ST7735_GREEN);
+      // }
+      // tft2.setCursor(30, 18);
+      // tft2.print(panelData[P_sync] == 0 ? "Sync Off" : "Sync On");
+      // tft2.updateScreen();
       break;
 
     case CCpmDestDCO1SW:
@@ -1452,12 +1472,6 @@ void myControlChange(byte channel, byte control, int value) {
       tft6.updateScreen();
       break;
 
-    case CCmodWheelDepth:
-      panelData[P_modWheelDepth] = value;
-      drawBar6(144, panelData[P_modWheelDepth], NUM_STEPS, STEP_HEIGHT);
-      tft6.updateScreen();
-      break;
-
       // TFT 7 effects
 
     case CCeffect1:
@@ -1513,6 +1527,18 @@ void myControlChange(byte channel, byte control, int value) {
     case CCvolumeControl:
       panelData[P_volumeControl] = value;
       drawBar8(98, panelData[P_volumeControl], NUM_STEPS, STEP_HEIGHT);
+      tft8.updateScreen();
+      break;
+
+    case CCmodWheelDepth:
+      panelData[P_modWheelDepth] = value;
+      drawBar8(236, panelData[P_modWheelDepth], NUM_STEPS, STEP_HEIGHT);
+      tft8.updateScreen();
+      break;
+
+    case CCPitchBend:
+      panelData[P_PitchBendLevel] = value;
+      drawBar8(282, panelData[P_PitchBendLevel], NUM_STEPS, STEP_HEIGHT);
       tft8.updateScreen();
       break;
 
@@ -1786,6 +1812,15 @@ void updateLEDs() {
       break;
     case 1:
       srp.set(PM_FILT_ENV_DEST_LED, HIGH);
+      break;
+  }
+
+  switch (panelData[P_keytrackSW]) {
+    case 0:
+      srp.set(KEYTRACK_LED, LOW);
+      break;
+    case 1:
+      srp.set(KEYTRACK_LED, HIGH);
       break;
   }
 }

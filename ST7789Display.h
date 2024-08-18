@@ -287,7 +287,7 @@ void renderCurrentPatchPage(int parameter) {
       switch (NotePriority) {
         case 0:
           tft0.setCursor(195, 138);
-          tft0.print("First");
+          tft0.print("Top");
           break;
 
         case 1:
@@ -682,8 +682,6 @@ void renderCurrentPatchPage(int parameter) {
       tft6.print("Dly");
       tft6.setCursor(96, 220);
       tft6.print("PW");
-      tft6.setCursor(140, 220);
-      tft6.print("MW");
 
       tft6.setFont(&FreeSans12pt7b);
       tft6.setTextColor(ST7735_BLACK);
@@ -751,7 +749,6 @@ void renderCurrentPatchPage(int parameter) {
       drawBar6(6, panelData[P_LFORate], NUM_STEPS, STEP_HEIGHT);
       drawBar6(52, panelData[P_LFODelay], NUM_STEPS, STEP_HEIGHT);
       drawBar6(98, panelData[P_pwLFO], NUM_STEPS, STEP_HEIGHT);
-      drawBar6(144, panelData[P_modWheelDepth], NUM_STEPS, STEP_HEIGHT);
 
       break;
 
@@ -933,7 +930,6 @@ void renderCurrentPatchPage(int parameter) {
       // tft7.print("P3");
       tft7.setCursor(190, 218);
       tft7.print(buf5);
-
       tft7.setFont(&FreeSans12pt7b);
 
       break;
@@ -958,6 +954,10 @@ void renderCurrentPatchPage(int parameter) {
       tft8.print("AM");
       tft8.setCursor(184, 220);
       tft8.print("Noise");
+      tft8.setCursor(234, 220);
+      tft8.print("MW");
+      tft8.setCursor(280, 220);
+      tft8.print("PB");
 
       tft8.setFont(&FreeSans12pt7b);
       tft8.setTextColor(ST7735_BLACK);
@@ -998,6 +998,8 @@ void renderCurrentPatchPage(int parameter) {
       drawBar8(98, panelData[P_volumeControl], NUM_STEPS, STEP_HEIGHT);
       drawBar8(144, panelData[P_amDepth], NUM_STEPS, STEP_HEIGHT);
       drawPWIndicator8(192, panelData[P_noiseLevel]);
+      drawBar8(236, panelData[P_modWheelDepth], NUM_STEPS, STEP_HEIGHT);
+      drawBar8(282, panelData[P_PitchBendLevel], NUM_STEPS, STEP_HEIGHT);
 
       break;
   }
